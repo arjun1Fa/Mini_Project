@@ -38,7 +38,6 @@ const _destinations = [
   _Dest('Add Food', Icons.add_circle_outline, Icons.add_circle),
   _Dest('History', Icons.bar_chart_outlined, Icons.bar_chart),
   _Dest('Insights', Icons.lightbulb_outline, Icons.lightbulb),
-  _Dest('Manual', Icons.edit_outlined, Icons.edit),
   _Dest('Profile', Icons.person_outline, Icons.person),
 ];
 
@@ -56,14 +55,33 @@ class _AppShellState extends State<AppShell> {
   void _go(int i) => setState(() => _index = i);
 
   late final List<Widget> _screens = [
-    AddFoodScreen(onGoToHistory: () => _go(1), onGoToManual: () => _go(3)),
+    AddFoodScreen(
+      onGoToHistory: () => _go(1),
+      onGoToManual: () {
+        Navigator.push(context, MaterialPageRoute(builder: (context) {
+          return Scaffold(
+            backgroundColor: AppColors.cream,
+            appBar: AppBar(
+              backgroundColor: AppColors.cream.withOpacity(0.95),
+              elevation: 0,
+              iconTheme: const IconThemeData(color: AppColors.ink),
+              title: Text('Manual Entry', style: GoogleFonts.dmSerifDisplay(fontSize: 18, color: AppColors.ink)),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(1),
+                child: Container(height: 1, color: AppColors.border),
+              ),
+            ),
+            body: const ManualEntryScreen(),
+          );
+        }));
+      }
+    ),
     const HistoryScreen(),
     const InsightsScreen(),
-    const ManualEntryScreen(),
     const ProfileScreen(),
   ];
 
-  final _titles = ['Add Food', 'History', 'Insights', 'Manual Entry', 'Profile'];
+  final _titles = ['Add Food', 'History', 'Insights', 'Profile'];
 
   @override
   Widget build(BuildContext context) {

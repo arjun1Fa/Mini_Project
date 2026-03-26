@@ -270,12 +270,16 @@ class InputOptionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  description,
-                  style: GoogleFonts.dmSans(
-                    fontSize: 13,
-                    color: AppColors.inkMuted,
-                    height: 1.5,
+                Expanded(
+                  child: Text(
+                    description,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13,
+                      color: AppColors.inkMuted,
+                      height: 1.5,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(height: 14),

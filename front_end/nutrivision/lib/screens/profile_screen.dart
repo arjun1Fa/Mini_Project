@@ -11,6 +11,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool _isLoggedIn = false;
   String _gender = 'Male';
   String _activity = 'Lightly Active';
   String _goal = 'Gain Muscle';
@@ -40,6 +41,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isLoggedIn) {
+      return _buildLoginView();
+    }
+
     final isWide = MediaQuery.of(context).size.width > 700;
 
     return SingleChildScrollView(
@@ -71,6 +76,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLoginView() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: NvCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('NutriVision',
+                  style: GoogleFonts.dmSerifDisplay(
+                      fontSize: 28, color: AppColors.ink)),
+              const SizedBox(height: 16),
+              const Text('Please login or sign up to view and manage your profile.',
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 32),
+              const TextField(
+                decoration: InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              const TextField(
+                obscureText: true,
+                decoration: InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () => setState(() => _isLoggedIn = true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.leaf,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Login / Sign Up'),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -249,20 +298,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => _snack('🔐 Login / Sign up coming soon!'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.creamDark,
-                    foregroundColor: AppColors.ink,
-                  ),
-                  child: const Text('Login / Sign Up'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => _snack('👋 You have been logged out'),
+                  onPressed: () => setState(() => _isLoggedIn = false),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.amber,
                     side: const BorderSide(color: AppColors.amber),
