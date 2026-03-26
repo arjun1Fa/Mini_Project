@@ -6,6 +6,7 @@ import 'screens/history_screen.dart';
 import 'screens/insights_screen.dart';
 import 'screens/manual_entry_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const NutriVisionApp());
@@ -20,7 +21,7 @@ class NutriVisionApp extends StatelessWidget {
       title: 'NutriVision',
       theme: AppTheme.theme,
       debugShowCheckedModeBanner: false,
-      home: const AppShell(),
+      home: const SplashScreen(),
     );
   }
 }
