@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config/app_config.dart';
 import 'theme/app_theme.dart';
 import 'screens/add_food_screen.dart';
 import 'screens/history_screen.dart';
@@ -7,21 +10,42 @@ import 'screens/insights_screen.dart';
 import 'screens/manual_entry_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/auth_screen.dart';
+import 'services/offline_service.dart';
+import 'providers/api_provider.dart';
 
-void main() {
-  runApp(const NutriVisionApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase
+  await Supabase.initialize(
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
+  );
+
+  // Initialize Hive for offline storage
+  await OfflineService.init();
+
+  runApp(const ProviderScope(child: NutriVisionApp()));
 }
 
-class NutriVisionApp extends StatelessWidget {
+class NutriVisionApp extends ConsumerWidget {
   const NutriVisionApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final navigatorKey = ref.watch(navigatorKeyProvider);
+
     return MaterialApp(
       title: 'NutriVision',
       theme: AppTheme.theme,
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
       home: const SplashScreen(),
+      routes: {
+        '/login': (_) => const AuthScreen(),
+        '/home': (_) => const AppShell(),
+      },
     );
   }
 }
@@ -234,7 +258,7 @@ class _DesktopShell extends StatelessWidget {
                       decoration: const BoxDecoration(
                           color: AppColors.leaf, shape: BoxShape.circle),
                       child: Center(
-                        child: Text('A',
+                        child: Text('N',
                             style: GoogleFonts.dmSans(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -246,13 +270,13 @@ class _DesktopShell extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Alex Johnson',
+                          Text('NutriVision User',
                               style: GoogleFonts.dmSans(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.cream),
                               overflow: TextOverflow.ellipsis),
-                          Text('Goal: Gain Muscle',
+                          Text('AI Food Diary',
                               style: GoogleFonts.dmSans(
                                   fontSize: 11, color: AppColors.inkFaint)),
                         ],
