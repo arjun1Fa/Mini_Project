@@ -1,12 +1,16 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/widgets.dart';
 import 'package:image_picker/image_picker.dart';
-import 'image_preview_screen.dart';
+import '../services/image_quality_service.dart';
+import 'processing_screen.dart';
 
-class AddFoodScreen extends StatelessWidget {
+class AddFoodScreen extends ConsumerWidget {
   final VoidCallback onGoToHistory;
   final VoidCallback onGoToManual;
 
@@ -19,20 +23,30 @@ class AddFoodScreen extends StatelessWidget {
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
     final picker = ImagePicker();
     try {
-      final pickedFile = await picker.pickImage(source: source);
+      final pickedFile = await picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
       if (pickedFile != null && context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ImagePreviewScreen(
-              imagePath: pickedFile.path,
-              onAnalyzeCompete: () {
-                Navigator.pop(context); // Pop preview
-                onGoToManual(); // Proceed to manual entry
-              },
+        // ── Image quality gate ──
+        final bytes = await File(pickedFile.path).readAsBytes();
+        final (isSharp, score) = ImageQualityService.checkSharpness(bytes);
+
+        if (!isSharp && context.mounted) {
+          final shouldContinue = await _showBlurWarning(context, score);
+          if (!shouldContinue) return; // User chose to retake
+        }
+
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProcessingScreen(imagePath: pickedFile.path),
             ),
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -41,8 +55,52 @@ class AddFoodScreen extends StatelessWidget {
     }
   }
 
+  /// Show blur warning. Returns true if user wants to continue anyway.
+  Future<bool> _showBlurWarning(BuildContext context, double score) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cream,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Text('⚠️', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 10),
+            Text('Blurry Image',
+                style: GoogleFonts.dmSerifDisplay(
+                    fontSize: 20, color: AppColors.ink)),
+          ],
+        ),
+        content: Text(
+          'This image may be blurry (sharpness: ${score.toStringAsFixed(0)}). '
+          'Retake for better results?',
+          style: GoogleFonts.dmSans(color: AppColors.inkSoft, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Use Anyway',
+                style: GoogleFonts.dmSans(
+                    color: AppColors.inkMuted, fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.leaf,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text('Retake', style: GoogleFonts.dmSans()),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
