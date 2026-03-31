@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../widgets/widgets.dart';
+import '../providers/api_provider.dart';
 
-class ManualEntryScreen extends StatefulWidget {
+class ManualEntryScreen extends ConsumerStatefulWidget {
   const ManualEntryScreen({super.key});
 
   @override
-  State<ManualEntryScreen> createState() => _ManualEntryScreenState();
+  ConsumerState<ManualEntryScreen> createState() => _ManualEntryScreenState();
 }
 
-class _ManualEntryScreenState extends State<ManualEntryScreen> {
+class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   final _nameCtrl = TextEditingController();
   final _calCtrl = TextEditingController();
   final _proCtrl = TextEditingController();
@@ -57,7 +59,9 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  bool _isSaving = false;
+
+  void _submit() async {
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('⚠️ Please enter a food name', style: GoogleFonts.dmSans()),
@@ -67,15 +71,57 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
       ));
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('✅ ${_nameCtrl.text} added to your log!', style: GoogleFonts.dmSans()),
-      backgroundColor: AppColors.leaf,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
-    _nameCtrl.clear(); _calCtrl.clear(); _proCtrl.clear();
-    _carbCtrl.clear(); _fatCtrl.clear(); _portionCtrl.clear();
-    setState(() {});
+
+    setState(() => _isSaving = true);
+
+    try {
+      final api = ref.read(apiServiceProvider);
+      
+      // Construct item manually
+      final item = {
+        'food_name': _nameCtrl.text.trim(),
+        'weight_g': double.tryParse(_portionCtrl.text) ?? 100,
+        'confidence': 1.0,
+        'nutrition': {
+          'calories': _cal.toDouble(),
+          'protein_g': _pro.toDouble(),
+          'carbs_g': _carb.toDouble(),
+          'fat_g': _fat.toDouble(),
+          'fiber_g': 0.0,
+        }
+      };
+
+      final total = {
+        'calories': _cal.toDouble(),
+        'protein_g': _pro.toDouble(),
+        'carbs_g': _carb.toDouble(),
+        'fat_g': _fat.toDouble(),
+        'fiber_g': 0.0,
+      };
+
+      await api.saveMeal(items: [item], total: total);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ ${_nameCtrl.text} added to your log!', style: GoogleFonts.dmSans()),
+          backgroundColor: AppColors.leaf,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('❌ Failed to save. Try again.', style: GoogleFonts.dmSans()),
+          backgroundColor: AppColors.amber,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -200,9 +246,11 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _submit,
-              icon: const Icon(Icons.check, size: 18),
-              label: const Text('Add to Log'),
+              onPressed: _isSaving ? null : _submit,
+              icon: _isSaving 
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.check, size: 18),
+              label: Text(_isSaving ? 'Saving...' : 'Add to Log'),
             ),
           ),
         ],
