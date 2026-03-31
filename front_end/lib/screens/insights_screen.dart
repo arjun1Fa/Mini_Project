@@ -1,15 +1,112 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/widgets.dart';
+import '../providers/meal_history_provider.dart';
+import '../providers/profile_provider.dart';
 
-class InsightsScreen extends StatelessWidget {
+class InsightsScreen extends ConsumerWidget {
   const InsightsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historyState = ref.watch(mealHistoryProvider);
+    final profileState = ref.watch(profileProvider);
+    final goalKcal = profileState.profile?.dailyGoalKcal ?? 2000;
+    
+    // Calculate a basic score based on macros
+    final hasRealData = historyState.meals.isNotEmpty;
+    
+    int score = 70;
+    String scoreTitle = 'Good Progress 🌿';
+    String scoreSubtitle = "You're making solid healthy choices.\nA few tweaks will push you to excellent.";
+    
+    List<(String, double, Color)> breakdownItems = [
+      ('Protein', 0.82, AppColors.leafLight),
+      ('Carbs', 0.88, AppColors.amber),
+      ('Fats', 0.89, AppColors.sky),
+      ('Fiber', 0.75, AppColors.gold),
+    ];
+
+    List<InsightItem> derivedInsights = [...insights];
+
+    if (hasRealData && goalKcal > 0) {
+      final todayCals = historyState.todayCalories;
+      final todayProtein = historyState.todayProtein;
+      final todayCarbs = historyState.carbsGoal(250).current;
+      final todayFat = historyState.fatGoal(65).current;
+      final todayFiber = historyState.fiberGoal(30).current;
+
+      double calRatio = (todayCals / goalKcal).clamp(0.0, 1.0);
+      double proRatio = (todayProtein / historyState.proteinGoal(83).goal).clamp(0.0, 1.0);
+      double carbRatio = (todayCarbs / historyState.carbsGoal(250).goal).clamp(0.0, 1.0);
+      double fatRatio = (todayFat / historyState.fatGoal(65).goal).clamp(0.0, 1.0);
+      double fiberRatio = (todayFiber / historyState.fiberGoal(30).goal).clamp(0.0, 1.0);
+
+      breakdownItems = [
+        ('Protein', proRatio, AppColors.leafLight),
+        ('Carbs', carbRatio, AppColors.amber),
+        ('Fats', fatRatio, AppColors.sky),
+        ('Fiber', fiberRatio, AppColors.gold),
+      ];
+
+      double avgMacro = (proRatio + carbRatio + fatRatio + fiberRatio) / 4.0;
+      double calScore = calRatio > 0.8 ? 1.0 : calRatio;
+      
+      score = ((avgMacro * 0.7 + calScore * 0.3) * 100).toInt();
+      
+      if (score > 85) {
+        scoreTitle = 'Excellent 🌟';
+        scoreSubtitle = "You're crushing your nutrition goals!";
+      } else if (score < 50) {
+        scoreTitle = 'Needs Work ⚠️';
+        scoreSubtitle = "Try actively tracking your macros and choosing whole foods.";
+      }
+
+      // Generate some dynamic insights
+      derivedInsights = [];
+      if (proRatio < 0.8) {
+        derivedInsights.add(const InsightItem(
+          emoji: '💪',
+          title: 'Increase Protein Intake',
+          body: "You're below your daily protein goal. Try adding lean meats, eggs, or legumes to your next meal.",
+          accentColor: 0xFF52B788,
+          bgColor: 0xFFD8F3DC,
+        ));
+      } else {
+        derivedInsights.add(const InsightItem(
+          emoji: '💪',
+          title: 'Protein Goal Met',
+          body: "Great job hitting your protein targets! This supports muscle recovery.",
+          accentColor: 0xFF52B788,
+          bgColor: 0xFFD8F3DC,
+        ));
+      }
+
+      if (fiberRatio < 0.6) {
+        derivedInsights.add(const InsightItem(
+          emoji: '🌾',
+          title: 'Add More Fiber',
+          body: "You're low on fiber. Include more whole grains, legumes, and fruits.",
+          accentColor: 0xFF2D6A4F,
+          bgColor: 0xFFD8F3DC,
+        ));
+      }
+
+      // Keep energy balance if calories are somewhat close
+      if (calRatio > 0.6 && calRatio < 1.1) {
+        derivedInsights.add(const InsightItem(
+          emoji: '⚡',
+          title: 'Energy Balance',
+          body: 'Your calorie intake is well-balanced. Maintain this for steady, sustainable progress.',
+          accentColor: 0xFFE76F51,
+          bgColor: 0xFFFDE8DF,
+        ));
+      }
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -40,16 +137,16 @@ class InsightsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _ScoreRing(score: 70),
+                _ScoreRing(score: score),
                 const SizedBox(height: 24),
                 Text(
-                  'Good Progress 🌿',
+                  scoreTitle,
                   style: GoogleFonts.dmSerifDisplay(
                       fontSize: 22, color: Colors.white),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "You're making solid healthy choices.\nA few tweaks will push you to excellent.",
+                  scoreSubtitle,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.dmSans(
                     fontSize: 13,
@@ -58,7 +155,7 @@ class InsightsScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 28),
-                _ScoreBreakdown(),
+                _ScoreBreakdown(items: breakdownItems),
               ],
             ),
           ),
@@ -71,7 +168,7 @@ class InsightsScreen extends StatelessWidget {
             style: GoogleFonts.dmSerifDisplay(fontSize: 20, color: AppColors.ink),
           ),
           const SizedBox(height: 14),
-          ...insights.map((i) => _InsightCard(item: i)),
+          ...derivedInsights.map((i) => _InsightCard(item: i)),
           const SizedBox(height: 24),
         ],
       ),
@@ -180,19 +277,14 @@ class _RingPainter extends CustomPainter {
 }
 
 class _ScoreBreakdown extends StatelessWidget {
-  final _items = const [
-    ('Protein', 0.82, AppColors.leafLight),
-    ('Carbs', 0.88, AppColors.amber),
-    ('Fats', 0.89, AppColors.sky),
-    ('Variety', 0.75, AppColors.gold),
-  ];
+  final List<(String, double, Color)> items;
 
-  const _ScoreBreakdown();
+  const _ScoreBreakdown({required this.items});
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: _items.map((item) {
+      children: items.map((item) {
         final (label, pct, color) = item;
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
