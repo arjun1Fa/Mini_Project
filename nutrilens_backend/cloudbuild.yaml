@@ -1,0 +1,52 @@
+steps:
+  # ── 1. Build the container image ──────────────────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/nutrilens-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/nutrilens-backend:latest'
+      - '.'
+
+  # ── 2. Push to Container Registry ────────────────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - 'gcr.io/$PROJECT_ID/nutrilens-backend:$COMMIT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - 'gcr.io/$PROJECT_ID/nutrilens-backend:latest'
+
+  # ── 3. Deploy to Cloud Run ────────────────────────────────────
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - nutrilens-backend
+      - '--image=gcr.io/$PROJECT_ID/nutrilens-backend:$COMMIT_SHA'
+      - '--region=asia-south1'          # Mumbai — lowest latency from India
+      - '--platform=managed'
+      - '--allow-unauthenticated'        # JWT auth is handled in-app
+      - '--memory=4Gi'                   # Needed for YOLOv8 + Depth model
+      - '--cpu=2'
+      - '--min-instances=0'
+      - '--max-instances=10'
+      - '--concurrency=4'                # Low — ML inference is CPU-heavy
+      - '--timeout=120'
+      - '--set-env-vars=MODEL_DIR=/app/models'
+      - '--set-secrets=SUPABASE_URL=nutrilens-supabase-url:latest'
+      - '--set-secrets=SUPABASE_SERVICE_KEY=nutrilens-supabase-key:latest'
+      - '--set-secrets=SUPABASE_JWT_SECRET=nutrilens-jwt-secret:latest'
+      - '--set-secrets=FIREBASE_CREDENTIALS_JSON=nutrilens-firebase-creds:latest'
+
+images:
+  - 'gcr.io/$PROJECT_ID/nutrilens-backend:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/nutrilens-backend:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8    # Faster builds
