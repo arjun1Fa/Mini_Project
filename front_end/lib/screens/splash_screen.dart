@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../theme/app_theme.dart';
-import '../main.dart'; // to get AppShell
+import '../main.dart';
+import 'auth_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -34,13 +36,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    // Navigate to next screen after 2.5 seconds
+    // Check auth and navigate
     Timer(const Duration(milliseconds: 2500), () {
       if (mounted) {
+        final session = Supabase.instance.client.auth.currentSession;
+        final destination = session != null
+            ? const AppShell()
+            : const AuthScreen();
+
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const AppShell(),
+            pageBuilder: (context, animation, secondaryAnimation) => destination,
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
