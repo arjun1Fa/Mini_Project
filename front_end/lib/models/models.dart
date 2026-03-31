@@ -26,13 +26,13 @@ class MealEntry {
   /// Create from a MealLog API response.
   factory MealEntry.fromMealLog(MealLog log) {
     final items = log.items;
-    final firstName = items.isNotEmpty
-        ? (items.first['food_name'] ?? 'Meal')
+    final String firstName = items.isNotEmpty
+        ? (items.first['food_name'] ?? 'Meal').toString()
         : 'Meal';
     return MealEntry(
       id: log.id,
-      name: firstName as String,
-      emoji: _emojiFor(firstName as String),
+      name: firstName,
+      emoji: _emojiFor(firstName),
       calories: log.totalCalories.round(),
       protein: log.totalProteinG,
       carbs: log.totalCarbsG,
