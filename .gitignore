@@ -1,0 +1,51 @@
+# Environments & Keys (CRITICAL)
+**/.env
+**/.env.*
+**/*.cert
+**/*.pem
+**/service_account.json
+**/firebase_credentials.json
+
+# IDE & OS caches
+**/.idea/
+**/.vscode/
+**/.DS_Store
+**/Thumbs.db
+
+# Python Backend
+**/__pycache__/
+**/*.py[cod]
+nutrilens_backend/vaazha/
+nutrilens_backend/venv/
+nutrilens_backend/env/
+nutrilens_backend/.pytest_cache/
+
+# Large Model files (Optional - depending on size or LFS usage)
+# nutrilens_backend/models/*.pt
+
+# Flutter Frontend
+front_end/.dart_tool/
+front_end/build/
+front_end/.flutter-plugins
+front_end/.flutter-plugins-dependencies
+front_end/.packages
+front_end/.pub-cache/
+front_end/.pub/
+
+# Flutter iOS / Mac
+front_end/ios/Pods/
+front_end/ios/.symlinks/
+front_end/ios/Flutter/App.framework
+front_end/ios/Flutter/Flutter.framework
+front_end/ios/Flutter/Generated.xcconfig
+front_end/ios/Flutter/app.flx
+front_end/ios/Flutter/flutter_assets/
+front_end/ios/Flutter/flutter_export_environment.sh
+front_end/macos/Flutter/ephemeral/
+
+# Flutter Android
+front_end/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# Flutter Windows / Linux
+front_end/windows/flutter/ephemeral/
+front_end/linux/flutter/ephemeral/

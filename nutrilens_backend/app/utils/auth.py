@@ -28,7 +28,7 @@ def require_auth(f):
 
     @wraps(f)
     def decorated(*args, **kwargs):
-        g.user_id = 'guest_user'
+        g.user_id = 'f600cfb7-e511-4ef4-a774-cd6449aea655'
         return f(*args, **kwargs)
 
     return decorated
