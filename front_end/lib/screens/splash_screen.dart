@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../theme/app_theme.dart';
 import '../main.dart';
-import 'auth_screen.dart';
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -39,10 +36,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // Check auth and navigate
     Timer(const Duration(milliseconds: 2500), () {
       if (mounted) {
-        final session = Supabase.instance.client.auth.currentSession;
-        final destination = session != null
-            ? const AppShell()
-            : const AuthScreen();
+        final destination = const AppShell();
 
         Navigator.pushReplacement(
           context,

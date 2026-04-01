@@ -20,7 +20,7 @@ def get_client():
         return None
     try:
         from supabase import create_client, Client
-        _client: Client = create_client(url, key)
+        _client = create_client(url, key)
         logger.info("Supabase client initialised.")
     except Exception as exc:
         logger.error("Supabase init error: %s", exc)

@@ -10,13 +10,7 @@ final navigatorKeyProvider = Provider<GlobalKey<NavigatorState>>((ref) {
 
 /// Singleton API service provider.
 final apiServiceProvider = Provider<ApiService>((ref) {
-  final navKey = ref.read(navigatorKeyProvider);
-  return ApiService(
-    onUnauthorized: () {
-      // On 401, clear session and navigate to login
-      navKey.currentState?.pushNamedAndRemoveUntil('/login', (route) => false);
-    },
-  );
+  return ApiService();
 });
 
 /// Singleton offline service provider.

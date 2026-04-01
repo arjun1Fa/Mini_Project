@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
 import '../widgets/widgets.dart';
 import '../providers/profile_provider.dart';
-import '../providers/auth_provider.dart';
-import 'auth_screen.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -48,11 +45,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _loaded = true;
       });
     } else {
-      // Use Supabase user email as fallback name
-      final user = Supabase.instance.client.auth.currentUser;
       if (mounted) {
         setState(() {
-          _nameCtrl.text = user?.email?.split('@').first ?? '';
+          _nameCtrl.text = 'NutriVision User';
           _loaded = true;
         });
       }
@@ -91,28 +86,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    try {
-      final auth = ref.read(authServiceProvider);
-      await auth.signOut();
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const AuthScreen()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error signing out: $e', style: GoogleFonts.dmSans()),
-          backgroundColor: AppColors.amber,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ));
-      }
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -159,10 +133,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildLeft() {
-    final user = Supabase.instance.client.auth.currentUser;
     final initials = _nameCtrl.text.isNotEmpty
         ? _nameCtrl.text[0].toUpperCase()
-        : (user?.email?[0].toUpperCase() ?? 'N');
+        : 'N';
 
     return Column(
       children: [
@@ -190,7 +163,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                user?.email ?? '',
+                'ai_diary@nutrivision.com',
                 style: GoogleFonts.dmSans(
                     fontSize: 13, color: AppColors.inkMuted),
               ),
@@ -356,38 +329,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: ElevatedButton(
                   onPressed: _save,
                   child: const Text('Save Changes'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Account card
-        NvCard(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Account',
-                  style: GoogleFonts.dmSerifDisplay(
-                      fontSize: 18, color: AppColors.ink)),
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: _logout,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.amber,
-                    side: const BorderSide(color: AppColors.amber),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: Text('Log Out',
-                      style: GoogleFonts.dmSans(
-                          fontWeight: FontWeight.w600, fontSize: 15)),
                 ),
               ),
             ],

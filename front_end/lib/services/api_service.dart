@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide MultipartFile;
 import '../config/app_config.dart';
 import '../models/models.dart';
 
@@ -20,23 +19,8 @@ class ApiService {
       sendTimeout: const Duration(seconds: 60),
     ));
 
-    // ── JWT interceptor ────────────────────────────────────
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) {
-        final session = Supabase.instance.client.auth.currentSession;
-        if (session != null) {
-          options.headers['Authorization'] = 'Bearer ${session.accessToken}';
-        }
-        return handler.next(options);
-      },
-      onError: (error, handler) {
-        if (error.response?.statusCode == 401) {
-          // Token expired or invalid — redirect to login
-          onUnauthorized?.call();
-        }
-        return handler.next(error);
-      },
-    ));
+    // ── JWT interceptor removed ──────────────────────────────
+    // Authentication is bypassed.
   }
 
   // ── POST /api/analyze ──────────────────────────────────
