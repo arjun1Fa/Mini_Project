@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../widgets/widgets.dart';
 import '../providers/profile_provider.dart';
+import '../providers/auth_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -329,6 +330,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: ElevatedButton(
                   onPressed: _save,
                   child: const Text('Save Changes'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () async {
+                    await ref.read(authServiceProvider).signOut();
+                    if (mounted) {
+                      Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
+                    }
+                  },
+                  child: Text('Log Out', style: GoogleFonts.dmSans(color: AppColors.amber)),
                 ),
               ),
             ],
