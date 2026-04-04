@@ -6,6 +6,11 @@ class AppConfig {
   /// If using a real physical phone, use your Wi-Fi IP (e.g. http://192.168.1.5:8080)
   static const apiBaseUrl = 'http://192.168.29.10:8080';
 
+  // ── Supabase Configuration ─────────────────────────────
+  // IMPORTANT: Replace with actual Supabase Anon Key.
+  static const supabaseUrl = 'https://msyhqpazjzoiawyrymgz.supabase.co';
+  static const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+
   // ── SharedPreferences Keys ─────────────────────────────
   static const keyJwt = 'nv_jwt_token';
   static const keyUserId = 'nv_user_id';
