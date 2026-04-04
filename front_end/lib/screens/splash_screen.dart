@@ -36,7 +36,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // Check auth and navigate
     Timer(const Duration(milliseconds: 2500), () {
       if (mounted) {
-        final destination = const AppShell();
+        final hasSession = Supabase.instance.client.auth.currentSession != null;
+        Widget destination = hasSession ? const AppShell() : const AuthScreen();
 
         Navigator.pushReplacement(
           context,
