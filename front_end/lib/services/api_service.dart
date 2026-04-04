@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import '../config/app_config.dart';
 import '../models/models.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Dio-based HTTP client for the NutriVision backend.
 /// Automatically attaches the Supabase JWT to every request.
@@ -19,8 +20,25 @@ class ApiService {
       sendTimeout: const Duration(seconds: 60),
     ));
 
-    // ── JWT interceptor removed ──────────────────────────────
-    // Authentication is bypassed.
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        try {
+          final session = Supabase.instance.client.auth.currentSession;
+          if (session?.accessToken != null) {
+            options.headers['Authorization'] = 'Bearer \${session!.accessToken}';
+          }
+        } catch (e) {
+          // ignore
+        }
+        return handler.next(options);
+      },
+      onError: (DioException e, handler) {
+        if (e.response?.statusCode == 401) {
+          onUnauthorized?.call();
+        }
+        return handler.next(e);
+      },
+    ));
   }
 
   // ── POST /api/analyze ──────────────────────────────────

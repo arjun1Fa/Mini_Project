@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/app_config.dart';
 import 'theme/app_theme.dart';
 import 'screens/add_food_screen.dart';
@@ -10,6 +11,7 @@ import 'screens/manual_entry_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/offline_service.dart';
+import 'screens/auth_screen.dart';
 import 'providers/api_provider.dart';
 
 void main() async {
@@ -17,6 +19,11 @@ void main() async {
 
   // Initialize Hive for offline storage
   await OfflineService.init();
+
+  await Supabase.initialize(
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
+  );
 
   runApp(const ProviderScope(child: NutriVisionApp()));
 }
@@ -36,6 +43,7 @@ class NutriVisionApp extends ConsumerWidget {
       home: const SplashScreen(),
       routes: {
         '/home': (_) => const AppShell(),
+        '/login': (_) => const AuthScreen(),
       },
     );
   }

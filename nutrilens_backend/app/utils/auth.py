@@ -24,11 +24,20 @@ def _decode_token(token: str) -> dict | None:
 
 
 def require_auth(f):
-    """Decorator: bypassed authentication."""
-
+    """Decorator: Extracts and verifies Supabase JWT token from Authorization header."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        g.user_id = 'f600cfb7-e511-4ef4-a774-cd6449aea655'
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "unauthorized", "message": "Missing Bearer token"}), 401
+            
+        token = auth_header.replace("Bearer ", "").strip()
+        payload = _decode_token(token)
+        
+        if not payload or "sub" not in payload:
+            return jsonify({"error": "unauthorized", "message": "Invalid or expired token"}), 401
+            
+        g.user_id = payload["sub"]
         return f(*args, **kwargs)
 
     return decorated
