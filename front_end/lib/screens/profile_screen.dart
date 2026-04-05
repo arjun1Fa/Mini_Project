@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
 import '../widgets/widgets.dart';
 import '../providers/profile_provider.dart';
@@ -14,6 +15,10 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _isEditing = false;
+  bool _loaded = false;
+
+  // Editable fields
   String _gender = 'Male';
   String _activity = 'Lightly Active';
   String _goal = 'Gain Muscle';
@@ -24,8 +29,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _heightCtrl = TextEditingController(text: '178');
   final _weightCtrl = TextEditingController(text: '75');
   final _calorieCtrl = TextEditingController(text: '2000');
-
-  bool _loaded = false;
 
   @override
   void initState() {
@@ -48,7 +51,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } else {
       if (mounted) {
         setState(() {
-          _nameCtrl.text = 'NutriVision User';
+          _nameCtrl.text = '';
           _loaded = true;
         });
       }
@@ -75,9 +78,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final ok = await ref.read(profileProvider.notifier).updateProfile(updates);
 
     if (mounted) {
+      setState(() => _isEditing = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-          ok ? '✅ Profile saved successfully!' : '❌ Failed to save',
+          ok ? '✅ Profile saved successfully!' : '❌ Failed to save. Check your connection.',
           style: GoogleFonts.dmSans(),
         ),
         backgroundColor: ok ? AppColors.leaf : AppColors.amber,
@@ -87,16 +91,83 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  String get _userEmail {
+    try {
+      return Supabase.instance.client.auth.currentUser?.email ?? 'No email';
+    } catch (_) {
+      return 'No email';
+    }
+  }
 
+  String get _displayName {
+    final name = _nameCtrl.text.trim();
+    return name.isNotEmpty ? name : 'NutriVision User';
+  }
+
+  String get _initials {
+    final name = _displayName;
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name[0].toUpperCase();
+  }
+
+  static const _plateLabels = {
+    'standard': 'Standard',
+    'thali': 'Thali',
+    'katori': 'Katori',
+    'side': 'Side',
+  };
 
   @override
   Widget build(BuildContext context) {
     final profileState = ref.watch(profileProvider);
-    final isWide = MediaQuery.of(context).size.width > 700;
 
+    // Loading state
     if (profileState.isLoading && !_loaded) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.leaf, strokeWidth: 2),
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: AppColors.leaf, strokeWidth: 2),
+            const SizedBox(height: 16),
+            Text('Loading profile…',
+                style: GoogleFonts.dmSans(color: AppColors.inkMuted, fontSize: 14)),
+          ],
+        ),
+      );
+    }
+
+    // Error state with retry
+    if (profileState.error != null && !_loaded) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('😕', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 16),
+            Text('Could not load profile',
+                style: GoogleFonts.dmSerifDisplay(fontSize: 20, color: AppColors.ink)),
+            const SizedBox(height: 8),
+            Text('Check your internet connection',
+                style: GoogleFonts.dmSans(fontSize: 14, color: AppColors.inkMuted)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() => _loaded = false);
+                _loadProfile();
+              },
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.leaf,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -105,27 +176,104 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader(
-            label: 'Account',
-            title: 'Your Profile',
-            subtitle: 'Manage your personal details and goals',
+          // Header with edit button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: SectionHeader(
+                  label: 'Account',
+                  title: 'Your Profile',
+                  subtitle: 'Manage your personal details and goals',
+                ),
+              ),
+              if (!_isEditing)
+                TextButton.icon(
+                  onPressed: () => setState(() => _isEditing = true),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: Text('Edit',
+                      style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.leaf),
+                ),
+            ],
           ),
 
-          if (isWide)
+          // ── Hero Card ──
+          _buildHeroCard(),
+          const SizedBox(height: 20),
+
+          // ── Personal Info ──
+          _buildPersonalInfo(),
+          const SizedBox(height: 20),
+
+          // ── Goals & Preferences ──
+          _buildGoals(),
+          const SizedBox(height: 20),
+
+          // ── Action Buttons ──
+          if (_isEditing) ...[
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildLeft()),
-                const SizedBox(width: 24),
-                Expanded(child: _buildRight()),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      setState(() => _isEditing = false);
+                      _loadProfile(); // revert changes
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text('Cancel',
+                        style: GoogleFonts.dmSans(
+                            color: AppColors.inkMuted, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.leaf,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text('Save Changes', style: GoogleFonts.dmSans()),
+                  ),
+                ),
               ],
-            )
-          else
-            Column(children: [
-              _buildLeft(),
-              const SizedBox(height: 20),
-              _buildRight(),
-            ]),
+            ),
+            const SizedBox(height: 20),
+          ],
+
+          // ── Logout ──
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () async {
+                await ref.read(authServiceProvider).signOut();
+                if (mounted) {
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/login', (r) => false);
+                }
+              },
+              icon: const Icon(Icons.logout, size: 18),
+              label: Text('Log Out', style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.amber,
+                side: BorderSide(color: AppColors.amber.withOpacity(0.4)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
 
           const SizedBox(height: 24),
         ],
@@ -133,235 +281,223 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildLeft() {
-    final initials = _nameCtrl.text.isNotEmpty
-        ? _nameCtrl.text[0].toUpperCase()
-        : 'N';
-
-    return Column(
-      children: [
-        // Hero card
-        NvCard(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            children: [
-              Container(
-                width: 88,
-                height: 88,
-                decoration: const BoxDecoration(
-                    color: AppColors.leaf, shape: BoxShape.circle),
-                child: Center(
-                  child: Text(initials,
-                      style: GoogleFonts.dmSerifDisplay(
-                          fontSize: 36, color: Colors.white)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _nameCtrl.text.isEmpty ? 'NutriVision User' : _nameCtrl.text,
-                style: GoogleFonts.dmSerifDisplay(
-                    fontSize: 22, color: AppColors.ink),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'ai_diary@nutrivision.com',
-                style: GoogleFonts.dmSans(
-                    fontSize: 13, color: AppColors.inkMuted),
-              ),
-              const SizedBox(height: 24),
-              const Divider(color: AppColors.border),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _profileStat('—', 'Meals'),
-                  _profileStat('—', 'Day Streak'),
-                  _profileStat('—', 'Avg Score'),
-                ],
-              ),
-            ],
+  // ── Hero Card ──────────────────────────────────────────
+  Widget _buildHeroCard() {
+    return NvCard(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        children: [
+          Container(
+            width: 88,
+            height: 88,
+            decoration: const BoxDecoration(
+                color: AppColors.leaf, shape: BoxShape.circle),
+            child: Center(
+              child: Text(_initials,
+                  style: GoogleFonts.dmSerifDisplay(
+                      fontSize: 36, color: Colors.white)),
+            ),
           ),
-        ),
-        const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          Text(
+            _displayName,
+            style: GoogleFonts.dmSerifDisplay(fontSize: 22, color: AppColors.ink),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _userEmail,
+            style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.inkMuted),
+          ),
+        ],
+      ),
+    );
+  }
 
-        // Personal info
-        NvCard(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  // ── Personal Info Card ────────────────────────────────
+  Widget _buildPersonalInfo() {
+    return NvCard(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
               Text('Personal Info',
                   style: GoogleFonts.dmSerifDisplay(
                       fontSize: 18, color: AppColors.ink)),
-              const SizedBox(height: 20),
-
-              _label('Name'),
-              TextField(
-                  controller: _nameCtrl,
-                  decoration: const InputDecoration(hintText: 'Your name')),
-              const SizedBox(height: 16),
-
-              _label('Age'),
-              TextField(
-                  controller: _ageCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(hintText: 'Your age')),
-              const SizedBox(height: 16),
-
-              _label('Gender'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: ['Male', 'Female', 'Other']
-                    .map((g) => NvChip(
-                          label: g,
-                          selected: _gender == g,
-                          onTap: () => setState(() => _gender = g),
-                        ))
-                    .toList(),
-              ),
-              const SizedBox(height: 16),
-
-              _label('Height & Weight'),
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: _heightCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration:
-                        const InputDecoration(hintText: 'Height (cm)'),
+              const Spacer(),
+              if (_isEditing)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.leafPale,
+                    borderRadius: BorderRadius.circular(6),
                   ),
+                  child: Text('EDITING',
+                      style: GoogleFonts.dmMono(
+                          fontSize: 10, color: AppColors.leaf, letterSpacing: 1)),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _weightCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration:
-                        const InputDecoration(hintText: 'Weight (kg)'),
-                  ),
-                ),
-              ]),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 20),
+
+          if (_isEditing) ...[
+            _label('Name'),
+            TextField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(hintText: 'Your name')),
+            const SizedBox(height: 16),
+            _label('Age'),
+            TextField(
+                controller: _ageCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(hintText: 'Your age')),
+            const SizedBox(height: 16),
+            _label('Gender'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ['Male', 'Female', 'Other']
+                  .map((g) => NvChip(
+                        label: g,
+                        selected: _gender == g,
+                        onTap: () => setState(() => _gender = g),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+            _label('Height & Weight'),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _heightCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: 'Height (cm)'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _weightCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: 'Weight (kg)'),
+                ),
+              ),
+            ]),
+          ] else ...[
+            _readOnlyRow('Name', _displayName),
+            _readOnlyRow('Age', '${_ageCtrl.text} years'),
+            _readOnlyRow('Gender', _gender),
+            _readOnlyRow('Height', '${_heightCtrl.text} cm'),
+            _readOnlyRow('Weight', '${_weightCtrl.text} kg'),
+          ],
+        ],
+      ),
     );
   }
 
-  Widget _buildRight() {
-    return Column(
-      children: [
-        // Goals card
-        NvCard(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  // ── Goals Card ────────────────────────────────────────
+  Widget _buildGoals() {
+    return NvCard(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
               Text('Activity & Goals',
                   style: GoogleFonts.dmSerifDisplay(
                       fontSize: 18, color: AppColors.ink)),
-              const SizedBox(height: 20),
-
-              _label('Activity Level'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  'Sedentary',
-                  'Lightly Active',
-                  'Moderately Active',
-                  'Very Active'
-                ]
-                    .map((a) => NvChip(
-                          label: a,
-                          selected: _activity == a,
-                          onTap: () => setState(() => _activity = a),
-                        ))
-                    .toList(),
-              ),
-              const SizedBox(height: 20),
-
-              _label('Goal'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children:
-                    ['Lose Weight', 'Maintain Weight', 'Gain Muscle']
-                        .map((g) => NvChip(
-                              label: g,
-                              selected: _goal == g,
-                              onTap: () => setState(() => _goal = g),
-                            ))
-                        .toList(),
-              ),
-              const SizedBox(height: 20),
-
-              _label('Plate Type'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ('standard', 'Standard'),
-                  ('thali', 'Thali'),
-                  ('katori', 'Katori'),
-                  ('side', 'Side'),
-                ]
-                    .map((e) => NvChip(
-                          label: e.$2,
-                          selected: _plateType == e.$1,
-                          onTap: () =>
-                              setState(() => _plateType = e.$1),
-                        ))
-                    .toList(),
-              ),
-              const SizedBox(height: 20),
-
-              _label('Daily Calorie Target'),
-              TextField(
-                controller: _calorieCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(hintText: 'e.g. 2000'),
-              ),
-              const SizedBox(height: 24),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _save,
-                  child: const Text('Save Changes'),
+              const Spacer(),
+              if (_isEditing)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.leafPale,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('EDITING',
+                      style: GoogleFonts.dmMono(
+                          fontSize: 10, color: AppColors.leaf, letterSpacing: 1)),
                 ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () async {
-                    await ref.read(authServiceProvider).signOut();
-                    if (mounted) {
-                      Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
-                    }
-                  },
-                  child: Text('Log Out', style: GoogleFonts.dmSans(color: AppColors.amber)),
-                ),
-              ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 20),
+
+          if (_isEditing) ...[
+            _label('Activity Level'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active']
+                  .map((a) => NvChip(
+                        label: a,
+                        selected: _activity == a,
+                        onTap: () => setState(() => _activity = a),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 20),
+            _label('Goal'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: ['Lose Weight', 'Maintain Weight', 'Gain Muscle']
+                  .map((g) => NvChip(
+                        label: g,
+                        selected: _goal == g,
+                        onTap: () => setState(() => _goal = g),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 20),
+            _label('Plate Type'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _plateLabels.entries
+                  .map((e) => NvChip(
+                        label: e.value,
+                        selected: _plateType == e.key,
+                        onTap: () => setState(() => _plateType = e.key),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 20),
+            _label('Daily Calorie Target'),
+            TextField(
+              controller: _calorieCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(hintText: 'e.g. 2000'),
+            ),
+          ] else ...[
+            _readOnlyRow('Activity Level', _activity),
+            _readOnlyRow('Goal', _goal),
+            _readOnlyRow('Plate Type', _plateLabels[_plateType] ?? 'Standard'),
+            _readOnlyRow('Daily Calories', '${_calorieCtrl.text} kcal'),
+          ],
+        ],
+      ),
     );
   }
 
-  Widget _profileStat(String val, String label) {
-    return Column(children: [
-      Text(val,
-          style: GoogleFonts.dmSerifDisplay(
-              fontSize: 24, color: AppColors.ink)),
-      const SizedBox(height: 4),
-      Text(label,
-          style:
-              GoogleFonts.dmSans(fontSize: 12, color: AppColors.inkMuted)),
-    ]);
+  // ── Helpers ───────────────────────────────────────────
+
+  Widget _readOnlyRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: GoogleFonts.dmSans(
+                  fontSize: 14, color: AppColors.inkMuted, fontWeight: FontWeight.w500)),
+          Text(value,
+              style: GoogleFonts.dmSans(
+                  fontSize: 14, color: AppColors.ink, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
   }
 
   Widget _label(String text) {

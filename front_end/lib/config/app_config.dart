@@ -6,7 +6,7 @@ class AppConfig {
   /// - Physical phone (same WiFi) → 'http://<your-PC-IP>:8080'
   /// - iOS Simulator or Web → 'http://127.0.0.1:8080'
   /// Find your IP: run 'ipconfig' in command prompt, look for "IPv4 Address"
-  static const apiBaseUrl = 'http://10.0.2.2:8080';
+  static const apiBaseUrl = 'http://172.28.106.47:8080';
 
   // ── Supabase Configuration ─────────────────────────────
   static const supabaseUrl = 'https://msyhqpazjzoiawyrymgz.supabase.co';

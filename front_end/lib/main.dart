@@ -13,6 +13,7 @@ import 'screens/splash_screen.dart';
 import 'services/offline_service.dart';
 import 'screens/auth_screen.dart';
 import 'providers/api_provider.dart';
+import 'providers/connectivity_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -359,7 +360,7 @@ class _DesktopShell extends StatelessWidget {
 }
 
 // ── Mobile shell (BottomNavigationBar) ────────────────
-class _MobileShell extends StatelessWidget {
+class _MobileShell extends ConsumerWidget {
   final int index;
   final ValueChanged<int> onDestinationSelected;
   final List<Widget> screens;
@@ -373,7 +374,9 @@ class _MobileShell extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final connectivityAsync = ref.watch(connectivityProvider);
+    final isOffline = connectivityAsync.whenOrNull(data: (v) => !v) ?? false;
     return Scaffold(
       appBar: AppBar(
         title: Row(children: [
@@ -413,16 +416,44 @@ class _MobileShell extends StatelessWidget {
           child: Container(height: 1, color: AppColors.border),
         ),
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        transitionBuilder: (child, anim) => FadeTransition(
-          opacity: anim,
-          child: child,
-        ),
-        child: KeyedSubtree(
-          key: ValueKey(index),
-          child: screens[index],
-        ),
+      body: Column(
+        children: [
+          // ── Offline Banner ──
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: isOffline ? 36 : 0,
+            color: AppColors.amber,
+            child: isOffline
+                ? Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.wifi_off, size: 14, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text('No Internet Connection',
+                            style: GoogleFonts.dmSans(
+                                fontSize: 12,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: child,
+              ),
+              child: KeyedSubtree(
+                key: ValueKey(index),
+                child: screens[index],
+              ),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(

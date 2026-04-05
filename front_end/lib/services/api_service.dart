@@ -26,7 +26,7 @@ class ApiService {
         try {
           final session = Supabase.instance.client.auth.currentSession;
           if (session?.accessToken != null) {
-            options.headers['Authorization'] = 'Bearer \${session!.accessToken}';
+            options.headers['Authorization'] = 'Bearer ${session!.accessToken}';
           }
         } catch (e) {
           // ignore
