@@ -35,6 +35,8 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
     ('🥟', 'Idli'),
     ('🥞', 'Dosa'),
     ('🍛', 'Biryani'),
+    ('🍌', 'Banana'),
+    ('🍊', 'Orange'),
   ];
 
   static const _emojiMap = {
@@ -44,7 +46,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
     'appam': '🥞', 'idiyappam': '🍜', 'porotta': '🌯',
     'puttu': '🕯️', 'idli': '🥟', 'dosa': '🥞', 'vada': '🍩',
     'chapathi': '🫓', 'dal_curry': '🥣', 'coconut_chutney': '🥥',
-    'green_chutney': '🌱',
+    'green_chutney': '🌱', 'banana': '🍌', 'orange': '🍊',
   };
 
   String get _previewEmoji {

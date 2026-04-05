@@ -63,6 +63,7 @@ class MealEntry {
       'pizza': '🍕', 'salad': '🥗', 'ramen': '🍜', 'burger': '🍔',
       'pasta': '🍝', 'wrap': '🥙', 'egg': '🥚', 'fish': '🐟',
       'chai': '☕', 'lassi': '🥛', 'veg': '🥦', 'sabzi': '🥦',
+      'banana': '🍌', 'orange': '🍊',
     };
     for (final e in map.entries) {
       if (low.contains(e.key)) return e.value;
