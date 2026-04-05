@@ -369,7 +369,8 @@ class _InsightCard extends StatelessWidget {
                     left: Radius.circular(14)),
               ),
             ),
-            Padding(
+            Expanded(
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -410,6 +411,7 @@ class _InsightCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
             ),
           ],
         ),

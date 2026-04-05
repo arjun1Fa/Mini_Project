@@ -46,6 +46,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _nameCtrl.text = profile.fullName ?? '';
         _calorieCtrl.text = profile.dailyGoalKcal.toString();
         _plateType = profile.plateType;
+        if (profile.age != null) _ageCtrl.text = profile.age.toString();
+        if (profile.heightCm != null) _heightCtrl.text = profile.heightCm.toString();
+        if (profile.weightKg != null) _weightCtrl.text = profile.weightKg.toString();
+        if (profile.gender != null && ['Male', 'Female', 'Other'].contains(profile.gender)) {
+          _gender = profile.gender!;
+        }
+        if (profile.activityLevel != null && ['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active'].contains(profile.activityLevel)) {
+          _activity = profile.activityLevel!;
+        }
+        if (profile.goal != null && ['Lose Weight', 'Maintain Weight', 'Gain Muscle'].contains(profile.goal)) {
+          _goal = profile.goal!;
+        }
         _loaded = true;
       });
     } else {
@@ -73,6 +85,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       'full_name': _nameCtrl.text.trim(),
       'daily_goal_kcal': int.tryParse(_calorieCtrl.text) ?? 2000,
       'plate_type': _plateType,
+      'age': int.tryParse(_ageCtrl.text),
+      'height_cm': double.tryParse(_heightCtrl.text),
+      'weight_kg': double.tryParse(_weightCtrl.text),
+      'gender': _gender,
+      'activity_level': _activity,
+      'goal': _goal,
     };
 
     final ok = await ref.read(profileProvider.notifier).updateProfile(updates);

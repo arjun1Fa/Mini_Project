@@ -8,7 +8,7 @@ from ..db.supabase_client import get_profile, upsert_profile
 
 profile_bp = Blueprint("profile", __name__)
 
-ALLOWED_FIELDS = {"full_name", "daily_goal_kcal", "plate_type", "units"}
+ALLOWED_FIELDS = {"full_name", "daily_goal_kcal", "plate_type", "units", "age", "gender", "height_cm", "weight_kg", "activity_level", "goal"}
 
 
 @profile_bp.route("/profile", methods=["GET"])

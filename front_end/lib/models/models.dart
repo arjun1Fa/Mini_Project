@@ -54,8 +54,12 @@ class MealEntry {
     final low = name.toLowerCase();
     const map = {
       'roti': '🫓', 'chapati': '🫓', 'rice': '🍚', 'dal': '🍲',
-      'chicken': '🍗', 'paneer': '🧀', 'biryani': '🍛', 'dosa': '🥞',
-      'idli': '🥟', 'samosa': '📐', 'naan': '🫓', 'curry': '🍛',
+      'chicken_curry': '🍗', 'beef_curry': '🥩', 'fish_curry': '🐟',
+      'egg_curry': '🥚', 'paneer': '🧀', 'biryani': '🍛', 'dosa': '🥞',
+      'idli': '🥟', 'sambar': '🥘', 'aviyal': '🥥', 'kadala_curry': '🍲',
+      'appam': '🥞', 'idiyappam': '🍜', 'porotta': '🌯', 'puttu': '🕯️',
+      'vada': '🍩', 'chapathi': '🫓', 'dal_curry': '🥣',
+      'samosa': '📐', 'naan': '🫓', 'curry': '🍛',
       'pizza': '🍕', 'salad': '🥗', 'ramen': '🍜', 'burger': '🍔',
       'pasta': '🍝', 'wrap': '🥙', 'egg': '🥚', 'fish': '🐟',
       'chai': '☕', 'lassi': '🥛', 'veg': '🥦', 'sabzi': '🥦',
@@ -342,12 +346,24 @@ class UserProfile {
   final int dailyGoalKcal;
   final String plateType;
   final String units;
+  final int? age;
+  final String? gender;
+  final double? heightCm;
+  final double? weightKg;
+  final String? activityLevel;
+  final String? goal;
 
   const UserProfile({
     this.fullName,
     this.dailyGoalKcal = 2000,
     this.plateType = 'standard',
     this.units = 'grams',
+    this.age,
+    this.gender,
+    this.heightCm,
+    this.weightKg,
+    this.activityLevel,
+    this.goal,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -356,6 +372,12 @@ class UserProfile {
       dailyGoalKcal: (json['daily_goal_kcal'] as num?)?.toInt() ?? 2000,
       plateType: json['plate_type'] ?? 'standard',
       units: json['units'] ?? 'grams',
+      age: (json['age'] as num?)?.toInt(),
+      gender: json['gender'],
+      heightCm: (json['height_cm'] as num?)?.toDouble(),
+      weightKg: (json['weight_kg'] as num?)?.toDouble(),
+      activityLevel: json['activity_level'],
+      goal: json['goal'],
     );
   }
 
@@ -364,6 +386,12 @@ class UserProfile {
         'daily_goal_kcal': dailyGoalKcal,
         'plate_type': plateType,
         'units': units,
+        'age': age,
+        'gender': gender,
+        'height_cm': heightCm,
+        'weight_kg': weightKg,
+        'activity_level': activityLevel,
+        'goal': goal,
       };
 
   UserProfile copyWith({
@@ -371,12 +399,24 @@ class UserProfile {
     int? dailyGoalKcal,
     String? plateType,
     String? units,
+    int? age,
+    String? gender,
+    double? heightCm,
+    double? weightKg,
+    String? activityLevel,
+    String? goal,
   }) {
     return UserProfile(
       fullName: fullName ?? this.fullName,
       dailyGoalKcal: dailyGoalKcal ?? this.dailyGoalKcal,
       plateType: plateType ?? this.plateType,
       units: units ?? this.units,
+      age: age ?? this.age,
+      gender: gender ?? this.gender,
+      heightCm: heightCm ?? this.heightCm,
+      weightKg: weightKg ?? this.weightKg,
+      activityLevel: activityLevel ?? this.activityLevel,
+      goal: goal ?? this.goal,
     );
   }
 }

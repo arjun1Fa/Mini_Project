@@ -68,7 +68,10 @@ def _run_real(model, image_rgb: np.ndarray, food_predictions: list[dict]) -> dic
     plate_result = None
     food_results = []
 
-    plate_classes = {"standard_plate", "thali_plate", "katori_bowl", "side_plate"}
+    plate_classes = {
+        "plate", "standard_plate", "thali_plate", "thali", 
+        "bowl", "katori_bowl", "katori", "tray", "container"
+    }
 
     if results.masks is None:
         return _mock_detections(image_rgb, food_predictions)
@@ -77,7 +80,7 @@ def _run_real(model, image_rgb: np.ndarray, food_predictions: list[dict]) -> dic
         zip(results.boxes, results.masks.data)
     ):
         cls_id = int(box.cls[0])
-        cls_name = model.names[cls_id]
+        cls_name = model.names[cls_id].lower()
         conf = float(box.conf[0])
         x1, y1, x2, y2 = map(int, box.xyxy[0])
         bbox = [x1, y1, x2 - x1, y2 - y1]

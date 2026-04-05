@@ -25,19 +25,26 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   final _mealTypes = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
   final _suggestions = [
-    ('🍗', 'Chicken Breast'),
     ('🍚', 'White Rice'),
-    ('🥦', 'Broccoli'),
-    ('🥚', 'Boiled Egg'),
-    ('🥑', 'Avocado'),
-    ('🐟', 'Salmon'),
+    ('🥘', 'Sambar'),
+    ('🥥', 'Aviyal'),
+    ('🥞', 'Appam'),
+    ('🌯', 'Porotta'),
+    ('🍗', 'Chicken Curry'),
+    ('🍲', 'Kadala Curry'),
+    ('🥟', 'Idli'),
+    ('🥞', 'Dosa'),
+    ('🍛', 'Biryani'),
   ];
 
   static const _emojiMap = {
-    'chicken': '🍗', 'rice': '🍚', 'broccoli': '🥦',
-    'egg': '🥚', 'avocado': '🥑', 'salmon': '🐟',
-    'pizza': '🍕', 'salad': '🥗', 'ramen': '🍜',
-    'burger': '🍔', 'pasta': '🍝', 'wrap': '🥙',
+    'chicken_curry': '🍗', 'beef_curry': '🥩', 'fish_curry': '🐟',
+    'egg_curry': '🥚', 'rice': '🍚', 'biryani': '🍛',
+    'sambar': '🥘', 'aviyal': '🥥', 'kadala_curry': '🍲',
+    'appam': '🥞', 'idiyappam': '🍜', 'porotta': '🌯',
+    'puttu': '🕯️', 'idli': '🥟', 'dosa': '🥞', 'vada': '🍩',
+    'chapathi': '🫓', 'dal_curry': '🥣', 'coconut_chutney': '🥥',
+    'green_chutney': '🌱',
   };
 
   String get _previewEmoji {
@@ -190,8 +197,22 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
             children: _suggestions.map((s) {
               final (emoji, name) = s;
               return GestureDetector(
-                onTap: () {
-                  setState(() => _nameCtrl.text = '$emoji $name');
+                onTap: () async {
+                  setState(() => _nameCtrl.text = name);
+                  // Smart-fill nutrition from database
+                  try {
+                    final results = await ref.read(apiServiceProvider).searchFood(name);
+                    if (results.isNotEmpty) {
+                      final top = results.first;
+                      setState(() {
+                        _calCtrl.text = top.caloriesPer100g.toInt().toString();
+                        _proCtrl.text = top.proteinPer100g.toInt().toString();
+                        _carbCtrl.text = top.carbsPer100g.toInt().toString();
+                        _fatCtrl.text = top.fatPer100g.toInt().toString();
+                        _portionCtrl.text = "100"; // Default to 100g
+                      });
+                    }
+                  } catch (e) { /* ignore */ }
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

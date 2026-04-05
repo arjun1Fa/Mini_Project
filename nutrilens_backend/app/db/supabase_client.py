@@ -125,6 +125,8 @@ def get_meal_by_id(meal_id: str) -> dict | None:
 
 # ── User profile ──────────────────────────────────────────────────────────────
 
+AUTH_META_FIELDS = {"age", "gender", "height_cm", "weight_kg", "activity_level", "goal"}
+
 def get_profile(user_id: str) -> dict | None:
     client = get_client()
     if client is None:
@@ -137,7 +139,19 @@ def get_profile(user_id: str) -> dict | None:
             .limit(1)
             .execute()
         )
-        return result.data[0] if result.data else None
+        profile_data = result.data[0] if result.data else {}
+
+        # Merge in the metadata fields from auth API
+        try:
+            user_auth = client.auth.admin.get_user_by_id(user_id)
+            meta = getattr(user_auth.user, "user_metadata", {}) or {}
+            for k in AUTH_META_FIELDS:
+                if k in meta:
+                    profile_data[k] = meta[k]
+        except Exception as e:
+            logger.error("get_profile auth admin error: %s", e)
+
+        return profile_data if profile_data else None
     except Exception as exc:
         logger.error("get_profile error: %s", exc)
         return None
@@ -148,9 +162,29 @@ def upsert_profile(user_id: str, fields: dict) -> dict | None:
     if client is None:
         return None
     try:
-        fields["id"] = user_id
-        result = client.table("users").upsert(fields).execute()
-        return result.data[0] if result.data else None
+        db_fields = {k: v for k, v in fields.items() if k not in AUTH_META_FIELDS}
+        meta_fields = {k: v for k, v in fields.items() if k in AUTH_META_FIELDS}
+
+        # DB updates
+        db_fields["id"] = user_id
+        result = client.table("users").upsert(db_fields).execute()
+        saved_data = result.data[0] if result.data else db_fields.copy()
+
+        # Auth metadata updates
+        if meta_fields:
+            try:
+                user_auth = client.auth.admin.get_user_by_id(user_id)
+                current_meta = getattr(user_auth.user, "user_metadata", {}) or {}
+                current_meta.update(meta_fields)
+                client.auth.admin.update_user_by_id(user_id, {"user_metadata": current_meta})
+                
+                # Merge into the result dict so client sees the saved fields
+                for k, v in meta_fields.items():
+                    saved_data[k] = v
+            except Exception as e:
+                logger.error("upsert_profile auth admin error: %s", e)
+
+        return saved_data
     except Exception as exc:
         logger.error("upsert_profile error: %s", exc)
         return None
