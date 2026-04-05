@@ -1,10 +1,12 @@
 /// Centralized configuration for NutriVision.
 class AppConfig {
   // ── Backend API ────────────────────────────────────────
-  /// For local testing on Android Emulator, use 10.0.2.2 instead of localhost.
-  /// If using iOS simulator or Web, use http://127.0.0.1:8080
-  /// If using a real physical phone, use your Wi-Fi IP (e.g. http://192.168.1.5:8080)
-  static const apiBaseUrl = 'http://192.168.29.10:8080';
+  /// ⚠️ UPDATE THIS to match where your Flask backend is running:
+  /// - Android Emulator → 'http://10.0.2.2:8080'
+  /// - Physical phone (same WiFi) → 'http://<your-PC-IP>:8080'
+  /// - iOS Simulator or Web → 'http://127.0.0.1:8080'
+  /// Find your IP: run 'ipconfig' in command prompt, look for "IPv4 Address"
+  static const apiBaseUrl = 'http://10.0.2.2:8080';
 
   // ── Supabase Configuration ─────────────────────────────
   static const supabaseUrl = 'https://msyhqpazjzoiawyrymgz.supabase.co';

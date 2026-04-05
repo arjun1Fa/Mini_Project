@@ -31,7 +31,22 @@ class InsightsScreen extends ConsumerWidget {
       ('Fiber', 0.75, AppColors.gold),
     ];
 
-    List<InsightItem> derivedInsights = [...insights];
+    List<InsightItem> derivedInsights = [
+      const InsightItem(
+        emoji: '📸',
+        title: 'Start Tracking',
+        body: 'Log your first meal to get personalized nutrition insights and recommendations.',
+        accentColor: 0xFF52B788,
+        bgColor: 0xFFD8F3DC,
+      ),
+      const InsightItem(
+        emoji: '💧',
+        title: 'Hydration Reminder',
+        body: "Don't forget to stay hydrated throughout the day. Aim for 8 glasses of water to support digestion.",
+        accentColor: 0xFFC9A84C,
+        bgColor: 0xFFFDF3D9,
+      ),
+    ];
 
     if (hasRealData && goalKcal > 0) {
       final todayCals = historyState.todayCalories;

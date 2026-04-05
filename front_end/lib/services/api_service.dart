@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:dio/dio.dart' as dio_pkg;
 import '../config/app_config.dart';
 import '../models/models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,7 +49,7 @@ class ApiService {
     List<Map<String, dynamic>> foodPredictions = const [],
   }) async {
     final formData = FormData.fromMap({
-      'image': await MultipartFile.fromFile(
+      'image': await dio_pkg.MultipartFile.fromFile(
         imageFile.path,
         filename: 'meal_image.jpg',
       ),

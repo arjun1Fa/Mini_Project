@@ -83,7 +83,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.cream,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
@@ -148,10 +148,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               const SizedBox(height: 32),
 
               // Submit Button
-              NvPrimaryButton(
-                label: _isLogin ? 'Log In' : 'Sign Up',
-                onPressed: _isLoading ? () {} : _submit,
-                isLoading: _isLoading,
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? () {} : _submit,
+                  child: _isLoading 
+                      ? const CircularProgressIndicator(color: AppColors.white)
+                      : Text(_isLogin ? 'Log In' : 'Sign Up'),
+                ),
               ),
               const SizedBox(height: 24),
 

@@ -98,14 +98,98 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
         _navigateToResults();
       }
     } catch (e) {
-      // Offline or server error — use fallback data
+      // Show meaningful error instead of silently falling back
       if (mounted) {
-        _handleOfflineMode();
+        _handleError(e);
       }
     }
   }
 
-  void _handleOfflineMode() {
+  void _handleError(Object error) {
+    String errorMessage;
+    if (error.toString().contains('SocketException') ||
+        error.toString().contains('Connection refused') ||
+        error.toString().contains('Connection reset')) {
+      errorMessage = 'Cannot connect to the server. Make sure the backend is running.';
+    } else if (error.toString().contains('TimeoutException') ||
+               error.toString().contains('connectTimeout') ||
+               error.toString().contains('receiveTimeout')) {
+      errorMessage = 'Server took too long to respond. Please try again.';
+    } else if (error.toString().contains('401')) {
+      errorMessage = 'Authentication error. Please log in again.';
+    } else {
+      errorMessage = 'Analysis failed: ${error.toString().split('\n').first}';
+    }
+
+    setState(() {
+      _isDone = true;
+      _error = errorMessage;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cream,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Text('⚠️', style: TextStyle(fontSize: 24)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text('Analysis Failed',
+                  style: GoogleFonts.dmSerifDisplay(
+                      fontSize: 20, color: AppColors.ink)),
+            ),
+          ],
+        ),
+        content: Text(
+          errorMessage,
+          style: GoogleFonts.dmSans(color: AppColors.inkSoft, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            child: Text('Go Back',
+                style: GoogleFonts.dmSans(
+                    color: AppColors.inkMuted, fontWeight: FontWeight.w600)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _useOfflineFallback();
+            },
+            child: Text('Use Offline Estimates',
+                style: GoogleFonts.dmSans(
+                    color: AppColors.gold, fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _isDone = false;
+                _error = null;
+                _currentStep = 0;
+              });
+              _startAnalysis();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.leaf,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text('Retry', style: GoogleFonts.dmSans()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _useOfflineFallback() {
     final fallbackItems = OfflinePortions.asAnalyzeItems()
         .map((e) => AnalyzedFoodItem.fromJson(e))
         .toList();
@@ -267,12 +351,17 @@ class _ProcessingScreenState extends ConsumerState<ProcessingScreen>
                     Text(
                       _error == 'offline'
                           ? '📡 Using offline estimates'
-                          : '✅ Analysis complete!',
+                          : _error != null
+                              ? '❌ $_error'
+                              : '✅ Analysis complete!',
                       style: GoogleFonts.dmSans(
                         fontSize: 15,
-                        color: AppColors.leafLight,
+                        color: _error != null && _error != 'offline'
+                            ? AppColors.amber
+                            : AppColors.leafLight,
                         fontWeight: FontWeight.w600,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ],

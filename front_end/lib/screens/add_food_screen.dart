@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../widgets/widgets.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/image_quality_service.dart';
+import '../providers/meal_history_provider.dart';
 import 'processing_screen.dart';
 
 class AddFoodScreen extends ConsumerWidget {
@@ -186,7 +187,45 @@ class AddFoodScreen extends ConsumerWidget {
           const SizedBox(height: 14),
 
           // ── Meals list ──
-          ...sampleMeals.take(3).map((meal) => MealRow(meal: meal)),
+          Builder(builder: (context) {
+            final historyState = ref.watch(mealHistoryProvider);
+            final recentMeals = historyState.meals
+                .take(3)
+                .map((m) => MealEntry.fromMealLog(m))
+                .toList();
+
+            if (recentMeals.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        'No recent meals',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 14,
+                          color: AppColors.inkMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Your logged meals will appear here',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          color: AppColors.inkFaint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: recentMeals.map((meal) => MealRow(meal: meal)).toList(),
+            );
+          }),
 
           const SizedBox(height: 24),
         ],

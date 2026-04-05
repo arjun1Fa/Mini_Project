@@ -32,24 +32,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final profileState = ref.watch(profileProvider);
     final goalKcal = profileState.profile?.dailyGoalKcal ?? 2000;
 
-    // Use real data if loaded, fallback to sample
+    // Use real data only — no fake fallback data
     final hasRealData = historyState.meals.isNotEmpty;
-    final chartData = hasRealData ? historyState.weeklyCalories : weeklyData;
-    final mealEntries = hasRealData
-        ? historyState.meals
-            .map((m) => MealEntry.fromMealLog(m))
-            .toList()
-        : sampleMeals;
+    final chartData = historyState.weeklyCalories;
+    final mealEntries = historyState.meals
+        .map((m) => MealEntry.fromMealLog(m))
+        .toList();
 
-    final todayCals = hasRealData
-        ? historyState.todayCalories.round()
-        : 1847;
-    final todayProtein = hasRealData
-        ? historyState.todayProtein.round()
-        : 68;
-    final mealCount = hasRealData
-        ? historyState.mealCountThisWeek
-        : 7;
+    final todayCals = historyState.todayCalories.round();
+    final todayProtein = historyState.todayProtein.round();
+    final mealCount = historyState.mealCountThisWeek;
 
     final goalPct = goalKcal > 0
         ? ((todayCals / goalKcal) * 100).round()
@@ -257,32 +249,20 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               const SizedBox(height: 20),
 
               // ── Macro breakdown ──
-              if (hasRealData)
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 1.3,
-                  children: [
-                    MacroBar(macro: historyState.proteinGoal(83)),
-                    MacroBar(macro: historyState.carbsGoal(250)),
-                    MacroBar(macro: historyState.fatGoal(65)),
-                    MacroBar(macro: historyState.fiberGoal(30)),
-                  ],
-                )
-              else
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 1.3,
-                  children:
-                      macroGoals.map((m) => MacroBar(macro: m)).toList(),
-                ),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                childAspectRatio: 1.3,
+                children: [
+                  MacroBar(macro: historyState.proteinGoal(83)),
+                  MacroBar(macro: historyState.carbsGoal(250)),
+                  MacroBar(macro: historyState.fatGoal(65)),
+                  MacroBar(macro: historyState.fiberGoal(30)),
+                ],
+              ),
 
               const SizedBox(height: 28),
 
@@ -317,6 +297,30 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                               style: GoogleFonts.dmSans(
                                   color: AppColors.leaf,
                                   fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (mealEntries.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        const Text('🍽️',
+                            style: TextStyle(fontSize: 48)),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No meals logged yet',
+                          style: GoogleFonts.dmSerifDisplay(
+                              fontSize: 18, color: AppColors.ink),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Take a photo or log a meal to get started',
+                          style: GoogleFonts.dmSans(
+                              fontSize: 13, color: AppColors.inkMuted),
                         ),
                       ],
                     ),
