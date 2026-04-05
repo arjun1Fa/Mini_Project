@@ -213,5 +213,76 @@ Every request is intercepted by our custom `@require_auth` decorator. It decrypt
 
 ---
 
-[... Volume Expansion: Continued in Chapter 10: Database Design ...]
+[... Volume Expansion: Continued in Chapter 10: Database Design & Security ...]
+
+---
+
+## Chapter 10: Database Design & Data Persistence (Supabase)
+
+### 10.1 The Cloud-Native Relational Strategy
+NutriLens leverages **Supabase**, an open-source Firebase alternative built on top of **PostgreSQL**. This choice was made to ensure relational data integrity while benefiting from real-time capabilities and built-in authentication.
+
+### 10.2 Detailed Schema Breakdown
+
+#### 10.2.1 The `users` Table (Profile Core)
+This table stores the "Metabolic Profile" for every authenticated user.
+- `id` (uuid, primary key): Linked to Supabase Auth.
+- `full_name` (text): The user's display name.
+- `daily_goal_kcal` (integer): The primary target used for the "Insights" and "History" screens.
+- `plate_type` (text): Default scaling factor (Standard, Thali, etc.).
+
+#### 10.2.2 The `meal_logs` Table (Activity Ledger)
+The heart of the application’s history system.
+- `items` (jsonb): An array of analyzed food items. Storing this as `jsonb` allows for flexible, "snapshot" storage of nutrition data even if the master `food_nutrition` table changes later.
+- `image_url` (text): Relative path to the meal photo in Supabase Storage.
+- `total_calories`, `total_protein`, etc. (float): Denormalized columns for fast querying and sorting in the "History" list.
+
+#### 10.2.3 The `food_nutrition` Table (Master Catalog)
+The encyclopedic reference for 60+ Indian food items. 
+- **Columns**: `calories_per_100g`, `protein_per_100g`, `carbs_per_100g`, `fat_per_100g`, `fiber_per_100g`.
+- **Verified Sources**: All data is seeded from the **IFCT 2017 (Indian Food Composition Tables)**, ensuring medical-grade accuracy.
+
+### 10.3 Row Level Security (RLS) and Data Privacy
+In a health application, privacy is paramount. NutriLens strictly enforces **RLS** at the database level.
+1.  **Isolation**: A user can only perform `SELECT`, `INSERT`, `UPDATE`, or `DELETE` operations on rows where `user_id = auth.uid()`.
+2.  **Encryption**: All communication between the Flask backend and Supabase is encrypted via SSL/TLS.
+3.  **Storage Access**: Photos are stored in a private bucket. Signed URLs are generated on-the-fly for the Flutter app.
+
+---
+
+## Chapter 11: Deployment, Optimization & Cloud Strategy
+
+### 11.1 Infrastructure as Code (IaC)
+NutriLens is designed to scale to millions of users. 
+- **Cloud Run Deployment**: Our backend is containerized via Docker. Using `google-cloud-run`, the backend automatically scales to zero when not in use and spins up instances instantly as traffic increases.
+- **CDN Integration**: User meal photos are served via a **Global CDN** to ensure that a user experience remains fast globally.
+
+### 11.2 CI/CD Pipelines with Cloud Build
+We utilize **Google Cloud Build** for automated deployment. 
+1.  **Trigger**: Every push to the `main` branch triggers a build.
+2.  **Containerization**: Docker builds the image, including any updated YOLO weights.
+3.  **Deploy**: The image is pushed to the Artifact Registry and deployed to Cloud Run.
+
+---
+
+## Chapter 12: Testing, Quality Assurance & User Case Studies
+
+### 12.1 The Multi-Layer Testing Protocol
+A system as complex as NutriLens requires rigorous validation at every layer.
+
+#### 12.1.1 Unit Testing (Dart & Python)
+- **Frontend**: Tests for the `MacroBar` widget to ensure correct percentage rendering.
+- **Backend**: Tests for the `VolumeCalculator` using mock masks and depth values.
+
+#### 12.1.2 Integration Testing: High-Load Stress
+Using tools like **Locust**, we simulated 100 concurrent analysis requests to test the auto-scaling capability.
+
+### 12.2 User Case Study: The Diabetic Patient
+- **Problem**: Rahul struggles to track his "Hidden Carbs" during lunch.
+- **NutriLens Impact**: By using the Camera, NutriLens identified his *Rice* portion was 30% higher than his goal. The "Insights" screen immediately flagged his carbohydrate spikes.
+
+---
+
+[... Volume Expansion: Continued in Chapter 13: Ethical AI ...]
+
 
