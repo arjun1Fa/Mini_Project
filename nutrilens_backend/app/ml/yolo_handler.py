@@ -62,7 +62,7 @@ def run_segmentation(image_rgb: np.ndarray, food_predictions: list[dict]) -> dic
 # ── Real inference ────────────────────────────────────────────────────────────
 
 def _run_real(model, image_rgb: np.ndarray, food_predictions: list[dict]) -> dict:
-    results = model(image_rgb, verbose=False)[0]
+    results = model(image_rgb, conf=0.1, verbose=False)[0]
     h, w = image_rgb.shape[:2]
 
     plate_result = None
