@@ -79,6 +79,13 @@ def _trigger_notification_check(user_id: str, latest_total: dict):
 def meal_history():
     start_date = request.args.get("start_date", "2000-01-01")
     end_date = request.args.get("end_date", "2099-12-31")
+    
+    # Supabase date comparisons on timestamps are exact.
+    # An end_date of "YYYY-MM-DD" acts as "YYYY-MM-DD 00:00:00",
+    # which cuts off all meals logged that day after midnight.
+    if len(end_date) == 10:
+        end_date += "T23:59:59.999Z"
+        
     page = int(request.args.get("page", 1))
     page_size = min(int(request.args.get("page_size", 20)), 100)
 

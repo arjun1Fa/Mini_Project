@@ -71,7 +71,7 @@ class MealHistoryState {
     final today = _todayMeals;
     final current = today.fold<double>(0, (s, m) => s + m.totalCarbsG);
     return MacroGoal(
-        name: 'Carbohydrates',
+        name: 'Carbs',
         current: current,
         goal: goalG,
         colorValue: 0xFFE76F51);

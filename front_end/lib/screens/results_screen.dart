@@ -8,6 +8,7 @@ import '../models/models.dart';
 import '../config/app_config.dart';
 import '../providers/analyze_provider.dart';
 import '../providers/api_provider.dart';
+import '../providers/meal_history_provider.dart';
 import '../widgets/widgets.dart';
 
 class ResultsScreen extends ConsumerStatefulWidget {
@@ -271,6 +272,9 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
         total: result.total.toJson(),
         imageUrl: result.imagePath ?? '',
       );
+
+      // Refresh meal history so the new meal shows up immediately
+      ref.read(mealHistoryProvider.notifier).refresh();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

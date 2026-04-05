@@ -178,13 +178,17 @@ class MacroBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              macro.name,
-              style: GoogleFonts.dmSans(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.ink),
+            Expanded(
+              child: Text(
+                macro.name,
+                style: GoogleFonts.dmSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const SizedBox(width: 4),
             Text(
               macro.label,
               style: GoogleFonts.dmMono(

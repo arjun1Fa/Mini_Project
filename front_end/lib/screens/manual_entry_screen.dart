@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../theme/app_theme.dart';
 import '../widgets/widgets.dart';
 import '../providers/api_provider.dart';
+import '../providers/meal_history_provider.dart';
 
 class ManualEntryScreen extends ConsumerStatefulWidget {
   const ManualEntryScreen({super.key});
@@ -100,6 +101,9 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       };
 
       await api.saveMeal(items: [item], total: total);
+
+      // Refresh meal history so the new meal shows up immediately
+      ref.read(mealHistoryProvider.notifier).refresh();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
