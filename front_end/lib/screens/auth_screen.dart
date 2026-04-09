@@ -103,7 +103,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                _isLogin ? 'Welcome Back' : 'Join NutriLens',
+                _isLogin ? 'Welcome Back' : 'Join NutriVision',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.dmSerifDisplay(
                   fontSize: 32,

@@ -95,13 +95,15 @@ class MealRow extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(children: [
-                      _macroPill('●', AppColors.amber, '${meal.calories} kcal'),
-                      const SizedBox(width: 10),
-                      _macroPill('●', AppColors.leafLight, '${meal.protein.toInt()}g protein'),
-                      const SizedBox(width: 10),
-                      _macroPill('●', AppColors.sky, '${meal.fat.toInt()}g fat'),
-                    ]),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        _macroPill('●', AppColors.amber, '${meal.calories} kcal'),
+                        _macroPill('●', AppColors.leafLight, '${meal.protein.toInt()}g protein'),
+                        _macroPill('●', AppColors.sky, '${meal.fat.toInt()}g fat'),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -250,7 +252,7 @@ class InputOptionCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -265,7 +267,7 @@ class InputOptionCard extends StatelessWidget {
                     child: Text(emoji, style: const TextStyle(fontSize: 26)),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 Text(
                   title,
                   style: GoogleFonts.dmSans(
@@ -274,20 +276,18 @@ class InputOptionCard extends StatelessWidget {
                     color: AppColors.ink,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Expanded(
-                  child: Text(
-                    description,
-                    style: GoogleFonts.dmSans(
-                      fontSize: 13,
-                      color: AppColors.inkMuted,
-                      height: 1.5,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 12,
+                    color: AppColors.inkMuted,
+                    height: 1.4,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.bottomRight,
                   child: Icon(

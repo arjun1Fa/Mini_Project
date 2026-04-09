@@ -19,7 +19,11 @@ from ..ml.yolo_handler import run_segmentation
 from ..ml.depth_handler import estimate_heights
 from ..ml.volume_calculator import estimate_weight
 from ..ml.shape_density_table import PLATE_DIAMETER_CM
+from ..ml.vision_api_handler import analyze_with_gemini
 from ..db.supabase_client import get_nutrition
+
+# ── Feature flag: set USE_YOLO=True in .env to re-enable the local YOLO pipeline
+USE_YOLO = os.getenv("USE_YOLO", "False").lower() in ("true", "1", "yes")
 
 logger = logging.getLogger(__name__)
 
@@ -98,51 +102,62 @@ def analyze():
         }
         return jsonify({"error": err_code, "message": messages.get(err_code, "Image quality issue")}), 422
 
-    # ── 4. YOLOv8-seg segmentation ────────────────────────────────────────────
-    seg_result = run_segmentation(image_rgb, food_predictions)
-    plate = seg_result["plate"]
-    foods = seg_result["foods"]
-
-    pixel_per_cm = _derive_pixel_per_cm(plate, plate_type)
-
-    # ── 5. Depth estimation ───────────────────────────────────────────────────
-    food_masks = [f["mask"] for f in foods]
-    heights_cm = estimate_heights(image_rgb, food_masks, pixel_per_cm)
-
-    # ── 6. Volume → weight → nutrition ───────────────────────────────────────
+    # ── 4 & 5 & 6. Food identification + weight estimation ───────────────────
     items = []
-    for food, height_cm in zip(foods, heights_cm):
-        cls = food["class_name"]
-        weight_g = estimate_weight(cls, food["area_px"], pixel_per_cm, height_cm)
-        nutrition_raw = _fetch_nutrition(cls)
-        nutrition = scale_nutrition(nutrition_raw, weight_g)
 
-        items.append(
-            {
+    if USE_YOLO:
+        # ── Legacy YOLO + Depth + Volume pipeline (disabled, preserved for future use)
+        seg_result = run_segmentation(image_rgb, food_predictions)
+        plate = seg_result["plate"]
+        foods = seg_result["foods"]
+        pixel_per_cm = _derive_pixel_per_cm(plate, plate_type)
+        food_masks = [f["mask"] for f in foods]
+        heights_cm = estimate_heights(image_rgb, food_masks, pixel_per_cm)
+
+        for food, height_cm in zip(foods, heights_cm):
+            cls = food["class_name"]
+            weight_g = estimate_weight(cls, food["area_px"], pixel_per_cm, height_cm)
+            nutrition_raw = _fetch_nutrition(cls)
+            nutrition = scale_nutrition(nutrition_raw, weight_g)
+            items.append({
                 "food_name": cls.replace("_", " ").title(),
                 "food_key": cls,
                 "confidence": round(food["confidence"], 3),
                 "weight_g": round(weight_g, 1),
-                "bounding_box": {
-                    "x": food["bbox"][0],
-                    "y": food["bbox"][1],
-                    "w": food["bbox"][2],
-                    "h": food["bbox"][3],
-                },
+                "bounding_box": {"x": food["bbox"][0], "y": food["bbox"][1], "w": food["bbox"][2], "h": food["bbox"][3]},
                 "segmentation_mask_b64": _mask_to_b64(food["mask"]),
                 "nutrition": nutrition,
-            }
-        )
+            })
+    else:
+        # ── NEW: Gemini Vision API pipeline ───────────────────────────────────
+        gemini_foods = analyze_with_gemini(image_rgb)
+        for food in gemini_foods:
+            cls = food["food_name"]
+            weight_g = food["weight_g"]
+            nutrition_raw = _fetch_nutrition(cls)
+            nutrition = scale_nutrition(nutrition_raw, weight_g)
+            items.append({
+                "food_name": cls.replace("_", " ").title(),
+                "food_key": cls,
+                "confidence": round(food["confidence"], 3),
+                "weight_g": round(weight_g, 1),
+                "bounding_box": {"x": 0, "y": 0, "w": 0, "h": 0},
+                "segmentation_mask_b64": "",
+                "nutrition": nutrition,
+            })
 
     total = sum_nutrition(items)
     processing_ms = int((time.time() - t0) * 1000)
+
+    # pixel_per_cm is only meaningful in the YOLO path; use 0 for Gemini path
+    ppcm = pixel_per_cm if USE_YOLO else 0.0
 
     return (
         jsonify(
             {
                 "items": items,
                 "total": total,
-                "plate_pixel_per_cm": round(pixel_per_cm, 4),
+                "plate_pixel_per_cm": round(ppcm, 4),
                 "processing_time_ms": processing_ms,
             }
         ),

@@ -81,7 +81,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 14,
-                childAspectRatio: 1.3,
+                childAspectRatio: 1.15,
                 children: [
                   _StatCard(
                     value: _formatNumber(todayCals),
@@ -255,7 +255,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 14,
-                childAspectRatio: 1.3,
+                childAspectRatio: 1.12,
                 children: [
                   MacroBar(macro: historyState.proteinGoal(83)),
                   MacroBar(macro: historyState.carbsGoal(250)),
@@ -338,17 +338,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   String _formatNumber(int n) {
-    if (n >= 1000) {
-      return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k'
-          .replaceAll('k', ',${(n % 1000).toString().padLeft(3, '0')}')
-          .replaceFirst(RegExp(r',\d{3}$'), ',${n % 1000}');
-    }
-    // Simple comma formatting
-    final str = n.toString();
-    if (str.length > 3) {
-      return '${str.substring(0, str.length - 3)},${str.substring(str.length - 3)}';
-    }
-    return str;
+    return n.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},'
+    );
   }
 }
 

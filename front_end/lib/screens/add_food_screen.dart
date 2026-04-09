@@ -119,7 +119,7 @@ class AddFoodScreen extends ConsumerWidget {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
-            childAspectRatio: 0.85,
+            childAspectRatio: 0.72,
             children: [
               InputOptionCard(
                 emoji: '📸',
