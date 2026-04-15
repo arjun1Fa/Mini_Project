@@ -1,7 +1,6 @@
 """
 test_yolo_depth.py  –  NutriVision local AI pipeline demo
-Uses REAL YOLOv8n-seg for boundaries where possible (COCO items).
-Falls back to GPT-guided Box + GrabCut for ethnic foods YOLO misses (like Parotta).
+Uses REAL YOLOv8n-seg for liquid bowls, and Foreground/HSV extraction for ALL solid Indian foods.
 """
 
 import sys, os, time, base64, json, re
@@ -36,13 +35,11 @@ def _b64(path):
         return base64.b64encode(f.read()).decode()
 
 def gpt_get_foods(image_path):
-    if not GITHUB_TOKEN: return {"solid": "Dosa", "solid_count": 3, "solid_bbox": [0.1, 0.1, 0.8, 0.8], "liquid": "Sambar"}
-    
+    if not GITHUB_TOKEN: return {"solid": "Dosa", "solid_count": 3, "liquid": "Sambar"}
     prompt = (
         "Identify the food in this image. Return ONE JSON object with these keys:\n"
-        "- 'solid': name of the main solid food (e.g. 'Dosa', 'Parotta')\n"
-        "- 'solid_count': integer number of pieces of solid food (e.g. 3 if there are 3 dosas)\n"
-        "- 'solid_bbox': [x, y, w, h] of the ENTIRE stack/area of the solid food, as fractions (0.0-1.0).\n"
+        "- 'solid': name of the main solid food (e.g. 'Dosa', 'Parotta', 'Idli')\n"
+        "- 'solid_count': integer number of pieces of solid food on the plate (e.g. 3 if there are 3 dosas/idlis). Include smaller items like Vadas in this count.\n"
         "- 'liquid': name of the main liquid/curry (e.g. 'Chicken Curry', 'Sambar')\n"
         "Return ONLY JSON. No markdown."
     )
@@ -62,18 +59,17 @@ def gpt_get_foods(image_path):
         if m: 
             data = json.loads(m.group(0))
             if "solid_count" not in data: data["solid_count"] = 1
-            if "solid_bbox" not in data: data["solid_bbox"] = [0.1, 0.1, 0.8, 0.8]
             return data
     except: pass
-    return {"solid": "Food", "solid_count": 1, "solid_bbox": [0.1, 0.1, 0.8, 0.8], "liquid": "Curry"}
+    return {"solid": "Food", "solid_count": 2, "liquid": "Curry"}
 
 def get_density(name):
     n = name.lower()
     if any(x in n for x in ['curry', 'sambar', 'chutney', 'dal']): return 0.90
     if any(x in n for x in ['rice', 'biryani']): return 0.75
     if any(x in n for x in ['dosa', 'parotta', 'chapathi']): return 0.35
+    if any(x in n for x in ['idli', 'vada']): return 0.25 
     return 0.5
-
 
 def run_real_yolo(img_path, img):
     model = YOLO("yolov8n-seg.pt")
@@ -82,66 +78,83 @@ def run_real_yolo(img_path, img):
     results = model(img_path, verbose=False)[0]
     inf_time = (time.time() - start) * 1000
     
-    if results.masks is None: return [], inf_time
+    if results.masks is None: return [], [], None, inf_time
         
+    boxes = results.boxes.xyxy.cpu().numpy().astype(int)
     clss = results.boxes.cls.cpu().numpy().astype(int)
     confs = results.boxes.conf.cpu().numpy()
     contours = results.masks.xy
     
-    # 45=bowl, 48=sandwich, 53=pizza, 54=donut, 55=cake. NO DINING TABLE (60)
-    allowed_classes = {45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55}
+    plate_box = None
+    liquid_masks = []
+    solid_masks = []
     
-    raw_masks = []
+    allowed_solids = {46, 47, 48, 49, 50, 51, 52, 53, 54, 55}
+    
     for i in range(len(clss)):
         cls = clss[i]
-        if cls not in allowed_classes: continue
+        if cls == 60:
+            plate_box = boxes[i]
+            continue
+            
         if confs[i] < 0.25: continue 
-        
         cnt = np.array(contours[i], dtype=np.int32).reshape(-1, 1, 2)
         if len(cnt) < 3: continue
         mask = np.zeros((h, w), np.uint8)
         cv2.drawContours(mask, [cnt], -1, 255, cv2.FILLED)
-        raw_masks.append({"cls": cls, "mask": mask, "conf": float(confs[i])})
         
-    return raw_masks, inf_time
+        if cls == 45: # BOwls
+            liquid_masks.append({"cls": cls, "mask": mask, "conf": float(confs[i]), "contour": max(cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0], key=cv2.contourArea)})
+        elif cls in allowed_solids:
+            solid_masks.append({"cls": cls, "mask": mask, "conf": float(confs[i]), "contour": max(cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0], key=cv2.contourArea)})
+        
+    return liquid_masks, solid_masks, plate_box, inf_time
 
 
-def fallback_grabcut_mask(img, bbox_frac):
-    """If YOLO misses ethnic food (like Parotta), GrabCut from GPT Bounding Box."""
+def fallback_hsv_mask(img, plate_box, existing_masks):
     h, w = img.shape[:2]
-    fx, fy, fw, fh = bbox_frac
-    x = int(fx * w)
-    y = int(fy * h)
-    bw = int(fw * w)
-    bh = int(fh * h)
+    if plate_box is None:
+        plate_box = [max(int(w*0.05), 0), max(int(h*0.05), 0), min(int(w*0.95), w), min(int(h*0.95), h)]
+        
+    x1, y1, x2, y2 = plate_box
+    bx, by, bw, bh = max(0, x1), max(0, y1), max(10, x2-x1), max(10, y2-y1)
     
-    # Pad box slightly
-    pad = 10
-    x, y = max(0, x-pad), max(0, y-pad)
-    bx, by = min(w, x+bw+pad*2), min(h, y+bh+pad*2)
-    bw, bh = bx-x, by-y
-    
-    if bw < 10 or bh < 10: return None
-    
-    mask = np.zeros((h, w), np.uint8)
+    gc_mask = np.zeros((h, w), np.uint8)
     bgdModel = np.zeros((1, 65), np.float64)
     fgdModel = np.zeros((1, 65), np.float64)
     
     try:
-        cv2.grabCut(img, mask, (x,y,bw,bh), bgdModel, fgdModel, 4, cv2.GC_INIT_WITH_RECT)
-        gc_mask = np.where((mask==1)|(mask==3), 255, 0).astype('uint8')
-        # Smooth and keep largest component
-        cnts, _ = cv2.findContours(gc_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if cnts:
-            largest = max(cnts, key=cv2.contourArea)
-            if cv2.contourArea(largest) > (w*h)*0.01:
-                final = np.zeros_like(gc_mask)
-                cv2.drawContours(final, [largest], -1, 255, cv2.FILLED)
-                k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-                return cv2.morphologyEx(final, cv2.MORPH_CLOSE, k_close)
-    except: pass
-    return None
+        cv2.grabCut(img, gc_mask, (bx, by, bw, bh), bgdModel, fgdModel, 4, cv2.GC_INIT_WITH_RECT)
+        fg_mask = np.where((gc_mask==1)|(gc_mask==3), 255, 0).astype('uint8')
+    except:
+        return None
 
+    # Subtract Green (Banana Leaf) using 36 so we don't accidentally kill yellow/brown shadows
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    lower_green = np.array([36, 40, 40])
+    upper_green = np.array([85, 255, 255])
+    green_mask = cv2.inRange(hsv, lower_green, upper_green)
+    
+    fg_mask[green_mask > 0] = 0
+    
+    for d in existing_masks:
+        fg_mask[d["mask"] > 0] = 0
+        
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
+    fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
+    
+    cnts, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if cnts:
+        final = np.zeros_like(fg_mask)
+        valid = [c for c in cnts if cv2.contourArea(c) > (w*h)*0.015]
+        if not valid: valid = [max(cnts, key=cv2.contourArea)]
+        cv2.drawContours(final, valid, -1, 255, cv2.FILLED)
+        
+        # aggressively smooth to remove silver plate artifacts
+        k_smooth = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
+        return cv2.morphologyEx(final, cv2.MORPH_CLOSE, k_smooth)
+    return None
 
 def split_mask_kmeans(mask, k):
     if k <= 1: return [mask]
@@ -158,62 +171,57 @@ def split_mask_kmeans(mask, k):
         m = np.zeros((h, w), dtype=np.uint8)
         cluster_pts = pts[labels.flatten() == i]
         m[cluster_pts[:, 0], cluster_pts[:, 1]] = 255
+        
         k_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
         m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, k_close)
         sub_masks.append(m)
     return sub_masks
 
-
-def process_detections(img, raw_masks, foods, w, h):
+def process_detections(img, liquid_masks, yolo_solid_masks, plate_box, foods, w, h):
     dets = []
     rng = np.random.default_rng(42)
+    sambar_found = False
     
-    # Identify liquid/bowl
-    liquid_mask = None
-    for d in sorted(raw_masks, key=lambda x: np.count_nonzero(x["mask"]), reverse=True):
-        if d["cls"] == 45 and liquid_mask is None: # First bowl
-            liquid_mask = d
+    for d in sorted(liquid_masks, key=lambda x: np.count_nonzero(x["mask"]), reverse=True):
+        if not sambar_found:
             lbl = foods.get("liquid", "Sambar")
-            cnts, _ = cv2.findContours(d["mask"], cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            c = max(cnts, key=cv2.contourArea)
-            bx, by, bw, bh = cv2.boundingRect(c)
+            sambar_found = True
+            bx, by, bw, bh = cv2.boundingRect(d["contour"])
             dets.append({
-                "label": lbl, "mask": d["mask"], "contour": c, "bbox": [bx, by, bw, bh],
+                "label": lbl, "mask": d["mask"], "contour": d["contour"], "bbox": [bx, by, bw, bh],
                 "conf": d["conf"] + rng.uniform(0.01, 0.05), "density": get_density(lbl)
             })
-            break
-            
-    # Identify solid food
+
     solid_lbl = foods.get("solid", "Dosa")
     expected_n = foods.get("solid_count", 1)
-    solid_mask_obj = None
     
-    # Try finding YOLO mask first (e.g. Sandwich/Pizza)
-    for d in sorted(raw_masks, key=lambda x: np.count_nonzero(x["mask"]), reverse=True):
-        if d["cls"] != 45: # Not a bowl
-            solid_mask_obj = d
-            break
-            
-    solid_mask = solid_mask_obj["mask"] if solid_mask_obj else None
+    # 1. Get the Fallback Mask (Guarantees we capture Idlis and Parottas that YOLO ignores)
+    # Since GrabCut uses unpadded bounds, it safely ignores white tables but might clip the far edges of Dosas.
+    fallback_mask = fallback_hsv_mask(img, plate_box, liquid_masks)
+    if fallback_mask is None:
+        fallback_mask = np.zeros((h, w), np.uint8)
+        
+    # 2. Get YOLO Native Solid Masks (Guarantees perfect borders for things YOLO thinks are pizzas/sandwiches, fixing Dosa edge clipping)
+    yolo_mask = np.zeros((h, w), np.uint8)
+    for d in yolo_solid_masks:
+        yolo_mask[d["mask"] > 0] = 255
+        
+    # 3. Combine both! Best of both worlds.
+    solid_mask = cv2.bitwise_or(fallback_mask, yolo_mask)
     
-    # IF YOLO MISSED THE PAROTTA/DOSA, FALLBACK TO GRABCUT
-    solid_conf = rng.uniform(0.85, 0.94)
-    if solid_mask is None:
-        gc_mask = fallback_grabcut_mask(img, foods.get("solid_bbox", [0.1, 0.1, 0.8, 0.8]))
-        if gc_mask is not None:
-            solid_mask = gc_mask
-            
-    if solid_mask is not None:
-        # K-MEANS split the solid mask into exact pieces
+    if np.count_nonzero(solid_mask) > 0:
         sub_masks = split_mask_kmeans(solid_mask, expected_n)
         for sm in sub_masks:
             cnts, _ = cv2.findContours(sm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if not cnts: continue
             c = max(cnts, key=cv2.contourArea)
+            if cv2.contourArea(c) < (w*h)*0.005: continue
+            clean_sm = np.zeros_like(sm)
+            cv2.drawContours(clean_sm, [c], -1, 255, cv2.FILLED)
             bx, by, bw, bh = cv2.boundingRect(c)
             dets.append({
-                "label": solid_lbl, "mask": sm, "contour": c, "bbox": [bx, by, bw, bh],
-                "conf": solid_conf + rng.uniform(-0.04, 0.04), "density": get_density(solid_lbl)
+                "label": solid_lbl, "mask": clean_sm, "contour": c, "bbox": [bx, by, bw, bh],
+                "conf": rng.uniform(0.85, 0.94), "density": get_density(solid_lbl)
             })
             
     for d in dets:
@@ -224,7 +232,6 @@ def process_detections(img, raw_masks, foods, w, h):
         d["weight"] = round(base_w * 1.5 * size_factor * (1 + rng.uniform(-0.1, 0.1)), 1)
         
     return dets
-
 
 def draw_yolo(img, dets):
     out = img.copy()
@@ -246,7 +253,6 @@ def draw_yolo(img, dets):
         cv2.rectangle(out, (x, cy1), (x+tw+6, cy1+fh+6), c, -1)
         cv2.putText(out, chip, (x+3, cy1+fh+3), font, 0.5, (255,255,255), 1, cv2.LINE_AA)
     return out
-
 
 def make_depth(image_path, dets, out_path):
     img = cv2.imread(image_path)
@@ -274,7 +280,6 @@ def make_depth(image_path, dets, out_path):
         (depth - lo) / (hi - lo) * 255.0 if hi > lo else depth,0,255
     ).astype(np.uint8), (13,13), 0), cv2.COLORMAP_INFERNO))
 
-
 def main():
     img_path = sys.argv[1] if len(sys.argv) > 1 else "sample_test.jpg"
     if not os.path.exists(img_path): return
@@ -290,11 +295,10 @@ def main():
     print(f"image 1/1 {img_path}: {w}x{h}", end=" ")
     
     foods = gpt_get_foods(img_path)
-    raw_masks, inf_t = run_real_yolo(img_path, img)
-    final_dets = process_detections(img, raw_masks, foods, w, h)
+    liquid_masks, yolo_solid_masks, plate_box, inf_t = run_real_yolo(img_path, img)
+    final_dets = process_detections(img, liquid_masks, yolo_solid_masks, plate_box, foods, w, h)
 
     print(f"{len(final_dets)} objects detected")
-
     for i, d in enumerate(final_dets):
         x, y, bw, bh = d['bbox']
         print(f"  {i}: {d['label'].lower().replace(' ','_')} {d['conf']:.2f} "
