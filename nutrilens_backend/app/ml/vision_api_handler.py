@@ -1,6 +1,6 @@
 """
-GitHub Models Vision API handler for NutriVision.
-Uses GPT-4o-mini via the free Microsoft Azure GitHub student endpoints.
+Groq Vision API handler for NutriVision.
+Uses Llama 4 Scout (vision-capable) via Groq's free API.
 Replaces the YOLO + Depth pipeline when USE_YOLO=False.
 """
 import os
@@ -34,12 +34,12 @@ Example output:
 
 def analyze_with_gemini(image_rgb) -> list[dict]:
     """
-    Send image to GPT-4o-mini via GitHub Models Azure endpoint.
+    Send image to Llama 4 Scout via Groq API for food identification.
     Function kept named 'analyze_with_gemini' to avoid changing analyze.py imports.
     """
-    api_key = os.getenv("GITHUB_TOKEN")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        logger.error("GITHUB_TOKEN is not set in .env")
+        logger.error("GROQ_API_KEY is not set in .env")
         return _fallback_response()
 
     try:
@@ -53,14 +53,14 @@ def analyze_with_gemini(image_rgb) -> list[dict]:
         pil_image.save(img_byte_arr, format='JPEG', quality=85)
         base64_image = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
 
-        # GitHub Models uses standard OpenAI SDK pointed to Azure
+        # Groq uses OpenAI-compatible API
         client = OpenAI(
-            base_url="https://models.inference.ai.azure.com",
+            base_url="https://api.groq.com/openai/v1",
             api_key=api_key
         )
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {
                     "role": "user",
@@ -70,7 +70,6 @@ def analyze_with_gemini(image_rgb) -> list[dict]:
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:image/jpeg;base64,{base64_image}",
-                                "detail": "high"
                             },
                         },
                     ],
@@ -81,11 +80,11 @@ def analyze_with_gemini(image_rgb) -> list[dict]:
         )
 
         raw_text = response.choices[0].message.content.strip()
-        logger.info("GitHub Models raw response: %s", raw_text)
+        logger.info("Groq Vision raw response: %s", raw_text)
         return _parse_response(raw_text)
 
     except Exception as exc:
-        logger.error("GitHub Models API call failed: %s", exc)
+        logger.error("Groq Vision API call failed: %s", exc, exc_info=True)
         return _fallback_response()
 
 
@@ -116,10 +115,10 @@ def _parse_response(raw_text: str) -> list[dict]:
         return result if result else _fallback_response()
 
     except (json.JSONDecodeError, ValueError) as exc:
-        logger.error("Failed to parse GitHub Models response: %s | Raw: %s", exc, raw_text)
+        logger.error("Failed to parse Groq response: %s | Raw: %s", exc, raw_text)
         return _fallback_response()
 
 
 def _fallback_response() -> list[dict]:
-    logger.warning("Using fallback food response — GitHub Models call failed.")
+    logger.warning("Using fallback food response — Vision API call failed.")
     return [{"food_name": "rice_cooked", "weight_g": 150.0, "confidence": 0.50}]
